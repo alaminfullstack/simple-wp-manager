@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
-import { type BreadcrumbItem, Server } from '@/types';
+import { type BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -13,28 +13,35 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 
 export default function Create() {
-    const [authMethod, setAuthMethod] = useState('password');
-    
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [generatedPassword, setGeneratedPassword] = useState('');
+
     const { data, setData, post, processing, errors } = useForm({
-        name: '',
-        domain: '',
-        server_ip: '',
-        server_port: 22,
-        server_username: 'root',
-        server_password: '',
-        server_ssh_key: '',
-        wp_version: 'latest',
-        container_port: 8080,
-        db_name: '',
-        db_user: '',
+        site_name: '',
+        domain: 'localhost',
+        port: 8080,
+        admin_email: '',
+        admin_user: 'admin',
+        admin_password: '',
+        db_name: 'wordpress',
+        db_user: 'wpuser',
         db_password: '',
-        db_host: 'mysql',
-        ssl_enabled: false,
     });
+
+    const generatePassword = () => {
+        const length = 16;
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+        let password = "";
+        for (let i = 0; i < length; i++) {
+            password += charset.charAt(Math.floor(Math.random() * charset.length));
+        }
+        setGeneratedPassword(password);
+        setData('admin_password', password);
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/wordpress-sites');
+        post('/wordpress');
     };
 
     const generateRandomPassword = () => {
@@ -52,231 +59,273 @@ export default function Create() {
 
             <div className="py-12">
                 <div className="max-w-3xl mx-auto sm:px-6 lg:px-8">
-                    <div className="mb-6">
-                        <Link href={'/wordpress-sites'} className="text-sm text-gray-600 hover:text-gray-900">
-                            ← Back to Sites
-                        </Link>
-                    </div>
-
-                    <div className="bg-white overflow-hidden shadow-sm rounded-lg">
+                    <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div className="p-6 border-b border-gray-200">
-                            <h2 className="text-2xl font-bold text-gray-900">Create New WordPress Site</h2>
-                            <p className="mt-1 text-sm text-gray-600">Deploy a new WordPress installation on your server</p>
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-2xl font-bold text-gray-800">
+                                    Create New WordPress Site
+                                </h2>
+                                <Link
+                                    href={'/wordpress'}
+                                    className="text-sm text-gray-600 hover:text-gray-900"
+                                >
+                                    ← Back to Sites
+                                </Link>
+                            </div>
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                            {/* Site Information */}
-                            <div>
-                                <h3 className="text-lg font-medium text-gray-900 mb-4">Site Information</h3>
-                                <div className="grid grid-cols-1 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Site Name</label>
-                                        <input
-                                            type="text"
-                                            value={data.name}
-                                            onChange={e => setData('name', e.target.value)}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            placeholder="My Awesome Site"
-                                        />
-                                        {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
-                                    </div>
+                            {/* Basic Information */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
+                                
+                                <div>
+                                    <label htmlFor="site_name" className="block text-sm font-medium text-gray-700">
+                                        Site Name *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="site_name"
+                                        value={data.site_name}
+                                        onChange={(e) => setData('site_name', e.target.value)}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        placeholder="My WordPress Site"
+                                        required
+                                    />
+                                    {errors.site_name && (
+                                        <p className="mt-1 text-sm text-red-600">{errors.site_name}</p>
+                                    )}
+                                </div>
 
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Domain</label>
+                                        <label htmlFor="domain" className="block text-sm font-medium text-gray-700">
+                                            Domain
+                                        </label>
                                         <input
                                             type="text"
+                                            id="domain"
                                             value={data.domain}
-                                            onChange={e => setData('domain', e.target.value)}
+                                            onChange={(e) => setData('domain', e.target.value)}
                                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            placeholder="example.com"
+                                            placeholder="localhost"
                                         />
-                                        {errors.domain && <p className="mt-1 text-sm text-red-600">{errors.domain}</p>}
+                                        {errors.domain && (
+                                            <p className="mt-1 text-sm text-red-600">{errors.domain}</p>
+                                        )}
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">WordPress Version</label>
-                                            <input
-                                                type="text"
-                                                value={data.wp_version}
-                                                onChange={e => setData('wp_version', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">Container Port</label>
-                                            <input
-                                                type="number"
-                                                value={data.container_port}
-                                                onChange={e => setData('container_port', Number(e.target.value))}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center">
+                                    <div>
+                                        <label htmlFor="port" className="block text-sm font-medium text-gray-700">
+                                            Port
+                                        </label>
                                         <input
-                                            type="checkbox"
-                                            checked={data.ssl_enabled}
-                                            onChange={e => setData('ssl_enabled', e.target.checked)}
-                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            type="number"
+                                            id="port"
+                                            value={data.port}
+                                            onChange={(e) => setData('port', Number(e.target.value))}
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            placeholder="8080"
+                                            min="1024"
+                                            max="65535"
                                         />
-                                        <label className="ml-2 block text-sm text-gray-700">Enable SSL</label>
+                                        {errors.port && (
+                                            <p className="mt-1 text-sm text-red-600">{errors.port}</p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Server Configuration */}
-                            <div>
-                                <h3 className="text-lg font-medium text-gray-900 mb-4">Server Configuration</h3>
-                                <div className="grid grid-cols-1 gap-4">
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="col-span-2">
-                                            <label className="block text-sm font-medium text-gray-700">Server IP Address</label>
-                                            <input
-                                                type="text"
-                                                value={data.server_ip}
-                                                onChange={e => setData('server_ip', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                                placeholder="192.168.1.100"
-                                            />
-                                            {errors.server_ip && <p className="mt-1 text-sm text-red-600">{errors.server_ip}</p>}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">SSH Port</label>
-                                            <input
-                                                type="number"
-                                                value={data.server_port}
-                                                onChange={e => setData('server_port', Number(e.target.value))}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            />
-                                        </div>
-                                    </div>
+                            {/* Admin Information */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-semibold text-gray-900">Admin Account</h3>
+                                
+                                <div>
+                                    <label htmlFor="admin_email" className="block text-sm font-medium text-gray-700">
+                                        Admin Email *
+                                    </label>
+                                    <input
+                                        type="email"
+                                        id="admin_email"
+                                        value={data.admin_email}
+                                        onChange={(e) => setData('admin_email', e.target.value)}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        placeholder="admin@example.com"
+                                        required
+                                    />
+                                    {errors.admin_email && (
+                                        <p className="mt-1 text-sm text-red-600">{errors.admin_email}</p>
+                                    )}
+                                </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">SSH Username</label>
+                                <div>
+                                    <label htmlFor="admin_user" className="block text-sm font-medium text-gray-700">
+                                        Admin Username *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="admin_user"
+                                        value={data.admin_user}
+                                        onChange={(e) => setData('admin_user', e.target.value)}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        placeholder="admin"
+                                        required
+                                    />
+                                    {errors.admin_user && (
+                                        <p className="mt-1 text-sm text-red-600">{errors.admin_user}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label htmlFor="admin_password" className="block text-sm font-medium text-gray-700">
+                                        Admin Password *
+                                    </label>
+                                    <div className="mt-1 flex rounded-md shadow-sm">
                                         <input
                                             type="text"
-                                            value={data.server_username}
-                                            onChange={e => setData('server_username', e.target.value)}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            id="admin_password"
+                                            value={data.admin_password}
+                                            onChange={(e) => setData('admin_password', e.target.value)}
+                                            className="block w-full rounded-l-md border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                            placeholder="Enter strong password"
+                                            required
+                                            minLength={8}
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={generatePassword}
+                                            className="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-700 text-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            Generate
+                                        </button>
                                     </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Authentication Method</label>
-                                        <div className="flex space-x-4">
-                                            <button
-                                                type="button"
-                                                onClick={() => setAuthMethod('password')}
-                                                className={`px-4 py-2 rounded-md ${authMethod === 'password' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-                                            >
-                                                Password
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setAuthMethod('ssh_key')}
-                                                className={`px-4 py-2 rounded-md ${authMethod === 'ssh_key' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-                                            >
-                                                SSH Key
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {authMethod === 'password' ? (
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">Server Password</label>
-                                            <input
-                                                type="password"
-                                                value={data.server_password}
-                                                onChange={e => setData('server_password', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            />
-                                            {errors.server_password && <p className="mt-1 text-sm text-red-600">{errors.server_password}</p>}
-                                        </div>
-                                    ) : (
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">SSH Private Key</label>
-                                            <textarea
-                                                value={data.server_ssh_key}
-                                                onChange={e => setData('server_ssh_key', e.target.value)}
-                                                rows={6}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-xs"
-                                                placeholder="-----BEGIN RSA PRIVATE KEY-----"
-                                            />
-                                            {errors.server_ssh_key && <p className="mt-1 text-sm text-red-600">{errors.server_ssh_key}</p>}
-                                        </div>
+                                    {errors.admin_password && (
+                                        <p className="mt-1 text-sm text-red-600">{errors.admin_password}</p>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Database Configuration */}
-                            <div>
-                                <h3 className="text-lg font-medium text-gray-900 mb-4">Database Configuration</h3>
-                                <div className="grid grid-cols-1 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Database Name</label>
-                                        <input
-                                            type="text"
-                                            value={data.db_name}
-                                            onChange={e => setData('db_name', e.target.value)}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            placeholder="wp_database"
-                                        />
-                                        {errors.db_name && <p className="mt-1 text-sm text-red-600">{errors.db_name}</p>}
-                                    </div>
+                            {/* Advanced Settings */}
+                            <div className="space-y-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAdvanced(!showAdvanced)}
+                                    className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-900"
+                                >
+                                    <svg
+                                        className={`w-5 h-5 mr-2 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                    Advanced Database Settings
+                                </button>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Database User</label>
-                                        <input
-                                            type="text"
-                                            value={data.db_user}
-                                            onChange={e => setData('db_user', e.target.value)}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            placeholder="wp_user"
-                                        />
-                                        {errors.db_user && <p className="mt-1 text-sm text-red-600">{errors.db_user}</p>}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Database Password</label>
-                                        <div className="mt-1 flex rounded-md shadow-sm">
+                                {showAdvanced && (
+                                    <div className="space-y-4 pl-7">
+                                        <div>
+                                            <label htmlFor="db_name" className="block text-sm font-medium text-gray-700">
+                                                Database Name
+                                            </label>
                                             <input
-                                                type="password"
-                                                value={data.db_password}
-                                                onChange={e => setData('db_password', e.target.value)}
-                                                className="block w-full rounded-l-md border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                                type="text"
+                                                id="db_name"
+                                                value={data.db_name}
+                                                onChange={(e) => setData('db_name', e.target.value)}
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                placeholder="wordpress"
                                             />
-                                            <button
-                                                type="button"
-                                                onClick={() => setData('db_password', generateRandomPassword())}
-                                                className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 text-sm hover:bg-gray-100"
-                                            >
-                                                Generate
-                                            </button>
+                                            {errors.db_name && (
+                                                <p className="mt-1 text-sm text-red-600">{errors.db_name}</p>
+                                            )}
                                         </div>
-                                        {errors.db_password && <p className="mt-1 text-sm text-red-600">{errors.db_password}</p>}
+
+                                        <div>
+                                            <label htmlFor="db_user" className="block text-sm font-medium text-gray-700">
+                                                Database User
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="db_user"
+                                                value={data.db_user}
+                                                onChange={(e) => setData('db_user', e.target.value)}
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                placeholder="wpuser"
+                                            />
+                                            {errors.db_user && (
+                                                <p className="mt-1 text-sm text-red-600">{errors.db_user}</p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label htmlFor="db_password" className="block text-sm font-medium text-gray-700">
+                                                Database Password
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="db_password"
+                                                value={data.db_password}
+                                                onChange={(e) => setData('db_password', e.target.value)}
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                placeholder="Auto-generated if empty"
+                                            />
+                                            {errors.db_password && (
+                                                <p className="mt-1 text-sm text-red-600">{errors.db_password}</p>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
 
-                            {/* Actions */}
-                            <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
+                            {/* Submit Button */}
+                            <div className="flex items-center justify-end space-x-4 pt-4 border-t">
                                 <Link
-                                    href={'/wordpress-sites'}
-                                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                    href={'/wordpress'}
+                                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                                 >
                                     Cancel
                                 </Link>
                                 <button
                                     type="submit"
                                     disabled={processing}
-                                    className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                                    className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150 disabled:opacity-50"
                                 >
-                                    {processing ? 'Creating...' : 'Create Site'}
+                                    {processing ? (
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Creating Site...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                                            </svg>
+                                            Create WordPress Site
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>
+                    </div>
+
+                    {/* Info Card */}
+                    <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex">
+                            <svg className="h-5 w-5 text-blue-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium text-blue-800">Note</h3>
+                                <div className="mt-2 text-sm text-blue-700">
+                                    <p>Creating a WordPress site may take 1-2 minutes. The site will be accessible at http://{data.domain}:{data.port} once ready.</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

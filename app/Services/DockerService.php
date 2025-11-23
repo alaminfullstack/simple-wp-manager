@@ -2,345 +2,320 @@
 
 namespace App\Services;
 
-use App\Models\Server;
-use App\Models\Site;
-use Illuminate\Support\Facades\Log;
-use phpseclib3\Net\SSH2;
+use App\Models\WordPressSite;
+use Symfony\Component\Process\Process;
+use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class DockerService
 {
-    protected function connectToServer(Server $server)
+    private $sitesPath;
+
+    public function __construct()
     {
-        $ssh = new SSH2($server->ip_address, $server->port);
+        $this->sitesPath = storage_path('wordpress-sites');
+        if (!file_exists($this->sitesPath)) {
+            mkdir($this->sitesPath, 0755, true);
+        }
+    }
+
+    public function createWordPressSite(array $data): WordPressSite
+    {
+        // Generate unique identifiers
+        $containerName = 'wp_' . uniqid();
+        $dbContainerName = 'wpdb_' . uniqid();
+        $port = $this->findAvailablePort($data['port'] ?? 8080);
+
+        // Create site record
+        $site = WordPressSite::create([
+            'site_name' => $data['site_name'],
+            'domain' => $data['domain'] ?? 'localhost',
+            'port' => $port,
+            'container_name' => $containerName,
+            'db_name' => $data['db_name'] ?? 'wordpress',
+            'db_user' => $data['db_user'] ?? 'wpuser',
+            'db_password' => $data['db_password'] ?? $this->generatePassword(),
+            'db_root_password' => $this->generatePassword(),
+            'admin_email' => $data['admin_email'],
+            'admin_user' => $data['admin_user'] ?? 'admin',
+            'admin_password' => $data['admin_password'] ?? $this->generatePassword(),
+            'status' => 'creating',
+        ]);
+
+        try {
+            $this->createDockerCompose($site);
+            $this->startContainers($site);
+            $this->waitForWordPress($site);
+            
+            $site->update(['status' => 'running']);
+        } catch (\Exception $e) {
+            $site->update([
+                'status' => 'error',
+                'error_message' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+
+        return $site;
+    }
+
+    private function createDockerCompose(WordPressSite $site): void
+    {
+        $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
         
-        if ($server->private_key) {
-            $key = \phpseclib3\Crypt\RSA::load($server->private_key);
-            if (!$ssh->login($server->username, $key)) {
-                throw new \Exception('SSH login failed');
-            }
-        } elseif ($server->password) {
-            if (!$ssh->login($server->username, $server->password)) {
-                throw new \Exception('SSH login failed');
-            }
-        } else {
-            throw new \Exception('No authentication method provided');
+        if (!file_exists($sitePath)) {
+            mkdir($sitePath, 0755, true);
         }
+
+        $dockerCompose = <<<YAML
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: {$site->container_name}_db
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: {$site->db_root_password}
+      MYSQL_DATABASE: {$site->db_name}
+      MYSQL_USER: {$site->db_user}
+      MYSQL_PASSWORD: {$site->db_password}
+    networks:
+      - {$site->container_name}_network
+
+  wordpress:
+    depends_on:
+      - db
+    image: wordpress:latest
+    container_name: {$site->container_name}
+    ports:
+      - "{$site->port}:80"
+    restart: always
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: {$site->db_user}
+      WORDPRESS_DB_PASSWORD: {$site->db_password}
+      WORDPRESS_DB_NAME: {$site->db_name}
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - {$site->container_name}_network
+
+volumes:
+  db_data:
+  wordpress_data:
+
+networks:
+  {$site->container_name}_network:
+    driver: bridge
+YAML;
+
+        $composePath = $sitePath . DIRECTORY_SEPARATOR . 'docker-compose.yml';
+        file_put_contents($composePath, $dockerCompose);
+    }
+
+    private function startContainers(WordPressSite $site): void
+    {
+        $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
         
-        return $ssh;
+        // Use 'docker compose' command (Docker Desktop modern syntax)
+        $process = new Process(['docker', 'compose', 'up', '-d'], $sitePath);
+        $process->setTimeout(300);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            // Try old syntax if new one fails
+            $process = new Process(['docker-compose', 'up', '-d'], $sitePath);
+            $process->setTimeout(300);
+            $process->run();
+            
+            if (!$process->isSuccessful()) {
+                throw new ProcessFailedException($process);
+            }
+        }
     }
-    
-    public function deploySite(Site $site)
+
+    private function waitForWordPress(WordPressSite $site, int $maxAttempts = 30): void
     {
-        try {
-            $server = $site->server;
-            $ssh = $this->connectToServer($server);
-            
-            // Create directory for the site
-            $ssh->exec("mkdir -p {$server->path}/{$site->container_name}");
-            
-            // Generate Docker Compose file
-            $composeContent = $this->generateDockerCompose($site);
-            $ssh->exec("echo '{$composeContent}' > {$server->path}/{$site->container_name}/docker-compose.yml");
-            
-            // Generate WordPress configuration
-            $wpConfigContent = $this->generateWpConfig($site);
-            $ssh->exec("echo '{$wpConfigContent}' > {$server->path}/{$site->container_name}/wp-config.php");
-            
-            // Start the containers
-            $ssh->exec("cd {$server->path}/{$site->container_name} && docker-compose up -d");
-            
-            // Wait for containers to be ready
-            sleep(10);
-            
-            // Check if containers are running
-            $output = $ssh->exec("cd {$server->path}/{$site->container_name} && docker-compose ps");
-            
-            if (strpos($output, 'Up') !== false) {
-                $site->status = 'running';
-                $site->last_deployed_at = now();
-                $site->save();
+        $url = "http://localhost:{$site->port}";
+        $attempts = 0;
+
+        while ($attempts < $maxAttempts) {
+            try {
+                $context = stream_context_create([
+                    'http' => [
+                        'timeout' => 2,
+                        'ignore_errors' => true
+                    ]
+                ]);
                 
-                // Install WordPress
-                $this->installWordPress($site, $ssh);
-            } else {
-                $site->status = 'failed';
-                $site->save();
+                $headers = @get_headers($url, 1, $context);
                 
-                Log::error('Failed to start containers for site: ' . $site->domain);
+                if ($headers && (strpos($headers[0], '200') !== false || strpos($headers[0], '302') !== false)) {
+                    // Give it a few more seconds to fully initialize
+                    sleep(3);
+                    return;
+                }
+            } catch (\Exception $e) {
+                // Continue waiting
             }
             
-            $ssh->disconnect();
-        } catch (\Exception $e) {
-            $site->status = 'failed';
-            $site->save();
-            
-            Log::error('Error deploying site: ' . $e->getMessage());
+            sleep(2);
+            $attempts++;
+        }
+
+        throw new \Exception('WordPress site failed to start within timeout period');
+    }
+
+    public function stopSite(WordPressSite $site): void
+    {
+        $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
+        
+        // Try new syntax first
+        $process = new Process(['docker', 'compose', 'stop'], $sitePath);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            // Try old syntax
+            $process = new Process(['docker-compose', 'stop'], $sitePath);
+            $process->run();
+        }
+
+        if ($process->isSuccessful()) {
+            $site->update(['status' => 'stopped']);
         }
     }
-    
-    public function updateSite(Site $site)
+
+    public function startSite(WordPressSite $site): void
     {
-        try {
-            $server = $site->server;
-            $ssh = $this->connectToServer($server);
-            
-            // Stop the containers
-            $ssh->exec("cd {$server->path}/{$site->container_name} && docker-compose down");
-            
-            // Update Docker Compose file
-            $composeContent = $this->generateDockerCompose($site);
-            $ssh->exec("echo '{$composeContent}' > {$server->path}/{$site->container_name}/docker-compose.yml");
-            
-            // Update WordPress configuration
-            $wpConfigContent = $this->generateWpConfig($site);
-            $ssh->exec("echo '{$wpConfigContent}' > {$server->path}/{$site->container_name}/wp-config.php");
-            
-            // Start the containers
-            $ssh->exec("cd {$server->path}/{$site->container_name} && docker-compose up -d");
-            
-            // Wait for containers to be ready
-            sleep(10);
-            
-            // Check if containers are running
-            $output = $ssh->exec("cd {$server->path}/{$site->container_name} && docker-compose ps");
-            
-            if (strpos($output, 'Up') !== false) {
-                $site->status = 'running';
-                $site->last_deployed_at = now();
-                $site->save();
-            } else {
-                $site->status = 'failed';
-                $site->save();
-                
-                Log::error('Failed to update containers for site: ' . $site->domain);
-            }
-            
-            $ssh->disconnect();
-        } catch (\Exception $e) {
-            $site->status = 'failed';
-            $site->save();
-            
-            Log::error('Error updating site: ' . $e->getMessage());
+        $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
+        
+        // Try new syntax first
+        $process = new Process(['docker', 'compose', 'start'], $sitePath);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            // Try old syntax
+            $process = new Process(['docker-compose', 'start'], $sitePath);
+            $process->run();
+        }
+
+        if ($process->isSuccessful()) {
+            $site->update(['status' => 'running']);
         }
     }
-    
-    public function removeSite(Site $site)
+
+    public function deleteSite(WordPressSite $site): void
     {
-        try {
-            $server = $site->server;
-            $ssh = $this->connectToServer($server);
-            
-            // Stop and remove the containers
-            $ssh->exec("cd {$server->path}/{$site->container_name} && docker-compose down -v");
-            
-            // Remove the directory
-            $ssh->exec("rm -rf {$server->path}/{$site->container_name}");
-            
-            $ssh->disconnect();
-        } catch (\Exception $e) {
-            Log::error('Error removing site: ' . $e->getMessage());
+        $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
+        
+        // Stop and remove containers with volumes
+        $process = new Process(['docker', 'compose', 'down', '-v'], $sitePath);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            // Try old syntax
+            $process = new Process(['docker-compose', 'down', '-v'], $sitePath);
+            $process->run();
         }
-    }
-    
-    public function startSite(Site $site)
-    {
-        try {
-            $server = $site->server;
-            $ssh = $this->connectToServer($server);
-            
-            // Start the containers
-            $ssh->exec("cd {$server->path}/{$site->container_name} && docker-compose start");
-            
-            // Check if containers are running
-            $output = $ssh->exec("cd {$server->path}/{$site->container_name} && docker-compose ps");
-            
-            if (strpos($output, 'Up') !== false) {
-                $site->status = 'running';
-                $site->save();
-            } else {
-                $site->status = 'failed';
-                $site->save();
-                
-                Log::error('Failed to start containers for site: ' . $site->domain);
-            }
-            
-            $ssh->disconnect();
-        } catch (\Exception $e) {
-            $site->status = 'failed';
-            $site->save();
-            
-            Log::error('Error starting site: ' . $e->getMessage());
+
+        // Remove directory
+        if (file_exists($sitePath)) {
+            $this->deleteDirectory($sitePath);
         }
+
+        $site->delete();
     }
-    
-    public function stopSite(Site $site)
+
+    public function getSiteLogs(WordPressSite $site, int $lines = 100): string
     {
-        try {
-            $server = $site->server;
-            $ssh = $this->connectToServer($server);
-            
-            // Stop the containers
-            $ssh->exec("cd {$server->path}/{$site->container_name} && docker-compose stop");
-            
-            // Check if containers are stopped
-            $output = $ssh->exec("cd {$server->path}/{$site->container_name} && docker-compose ps");
-            
-            if (strpos($output, 'Exit') !== false || strpos($output, 'Up') === false) {
-                $site->status = 'stopped';
-                $site->save();
-            } else {
-                $site->status = 'failed';
-                $site->save();
-                
-                Log::error('Failed to stop containers for site: ' . $site->domain);
-            }
-            
-            $ssh->disconnect();
-        } catch (\Exception $e) {
-            $site->status = 'failed';
-            $site->save();
-            
-            Log::error('Error stopping site: ' . $e->getMessage());
+        $process = new Process(['docker', 'logs', '--tail', (string)$lines, $site->container_name]);
+        $process->run();
+
+        return $process->getOutput() ?: 'No logs available';
+    }
+
+    public function checkDockerAvailability(): array
+    {
+        // Check if Docker is running
+        $process = new Process(['docker', 'info']);
+        $process->run();
+
+        $dockerRunning = $process->isSuccessful();
+
+        // Check Docker Compose
+        $process = new Process(['docker', 'compose', 'version']);
+        $process->run();
+        
+        $composeAvailable = $process->isSuccessful();
+        
+        if (!$composeAvailable) {
+            // Try old syntax
+            $process = new Process(['docker-compose', '--version']);
+            $process->run();
+            $composeAvailable = $process->isSuccessful();
         }
-    }
-    
-    public function restartSite(Site $site)
-    {
-        try {
-            $server = $site->server;
-            $ssh = $this->connectToServer($server);
-            
-            // Restart the containers
-            $ssh->exec("cd {$server->path}/{$site->container_name} && docker-compose restart");
-            
-            // Check if containers are running
-            $output = $ssh->exec("cd {$server->path}/{$site->container_name} && docker-compose ps");
-            
-            if (strpos($output, 'Up') !== false) {
-                $site->status = 'running';
-                $site->save();
-            } else {
-                $site->status = 'failed';
-                $site->save();
-                
-                Log::error('Failed to restart containers for site: ' . $site->domain);
-            }
-            
-            $ssh->disconnect();
-        } catch (\Exception $e) {
-            $site->status = 'failed';
-            $site->save();
-            
-            Log::error('Error restarting site: ' . $e->getMessage());
-        }
-    }
-    
-    protected function generateDockerCompose(Site $site)
-    {
-        $compose = [
-            'version' => '3.8',
-            'services' => [
-                'wordpress' => [
-                    'image' => 'wordpress:latest',
-                    'container_name' => $site->container_name,
-                    'restart' => 'unless-stopped',
-                    'ports' => [
-                        '80:80',
-                        '443:443',
-                    ],
-                    'environment' => [
-                        'WORDPRESS_DB_HOST' => 'db',
-                        'WORDPRESS_DB_USER' => $site->database_user,
-                        'WORDPRESS_DB_PASSWORD' => $site->database_password,
-                        'WORDPRESS_DB_NAME' => $site->database_name,
-                        'WORDPRESS_TABLE_PREFIX' => 'wp_',
-                    ],
-                    'volumes' => [
-                        './wp-content:/var/www/html/wp-content',
-                        './wp-config.php:/var/www/html/wp-config.php',
-                    ],
-                    'depends_on' => [
-                        'db',
-                    ],
-                ],
-                'db' => [
-                    'image' => 'mysql:5.7',
-                    'container_name' => $site->container_name . '_db',
-                    'restart' => 'unless-stopped',
-                    'environment' => [
-                        'MYSQL_DATABASE' => $site->database_name,
-                        'MYSQL_USER' => $site->database_user,
-                        'MYSQL_PASSWORD' => $site->database_password,
-                        'MYSQL_ROOT_PASSWORD' => 'rootpassword',
-                    ],
-                    'volumes' => [
-                        'db_data:/var/lib/mysql',
-                    ],
-                ],
-            ],
-            'volumes' => [
-                'db_data' => [
-                    'driver' => 'local',
-                ],
-            ],
+
+        return [
+            'docker_running' => $dockerRunning,
+            'compose_available' => $composeAvailable,
+            'can_create_sites' => $dockerRunning && $composeAvailable
         ];
+    }
+
+    private function findAvailablePort(int $startPort = 8080): int
+    {
+        $port = $startPort;
+        $maxPort = 9000; // Limit search range
         
-        // Add SSL configuration if enabled
-        if ($site->ssl['enabled'] ?? false) {
-            $compose['services']['wordpress']['volumes'][] = './ssl:/etc/nginx/ssl';
+        while ($port < $maxPort) {
+            if (!WordPressSite::where('port', $port)->exists()) {
+                return $port;
+            }
+            $port++;
+        }
+
+        // If all ports in range are taken, throw exception
+        throw new \Exception('No available ports found in range 8080-9000');
+    }
+
+    private function generatePassword(int $length = 16): string
+    {
+        $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        $password = '';
+        $max = strlen($characters) - 1;
+        
+        for ($i = 0; $i < $length; $i++) {
+            $password .= $characters[random_int(0, $max)];
         }
         
-        return json_encode($compose, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        return $password;
     }
-    
-    protected function generateWpConfig(Site $site)
+
+    private function deleteDirectory(string $dir): void
     {
-        $config = "<?php\n";
-        $config .= "/**\n";
-        $config .= " * WordPress configuration file\n";
-        $config .= " */\n\n";
-        $config .= "// Database settings\n";
-        $config .= "define('DB_NAME', '{$site->database_name}');\n";
-        $config .= "define('DB_USER', '{$site->database_user}');\n";
-        $config .= "define('DB_PASSWORD', '{$site->database_password}');\n";
-        $config .= "define('DB_HOST', 'db');\n";
-        $config .= "define('DB_CHARSET', 'utf8mb4');\n";
-        $config .= "define('DB_COLLATE', '');\n\n";
-        $config .= "// Authentication Unique Keys and Salts\n";
-        $config .= "define('AUTH_KEY', '" . wp_generate_password(64, true) . "');\n";
-        $config .= "define('SECURE_AUTH_KEY', '" . wp_generate_password(64, true) . "');\n";
-        $config .= "define('LOGGED_IN_KEY', '" . wp_generate_password(64, true) . "');\n";
-        $config .= "define('NONCE_KEY', '" . wp_generate_password(64, true) . "');\n";
-        $config .= "define('AUTH_SALT', '" . wp_generate_password(64, true) . "');\n";
-        $config .= "define('SECURE_AUTH_SALT', '" . wp_generate_password(64, true) . "');\n";
-        $config .= "define('LOGGED_IN_SALT', '" . wp_generate_password(64, true) . "');\n";
-        $config .= "define('NONCE_SALT', '" . wp_generate_password(64, true) . "');\n\n";
-        $config .= "// WordPress Database Table prefix\n";
-        $config .= "\$table_prefix = 'wp_';\n\n";
-        $config .= "// WordPress absolute path to the WordPress directory\n";
-        $config .= "if (!defined('ABSPATH')) {\n";
-        $config .= "    define('ABSPATH', __DIR__ . '/');\n";
-        $config .= "}\n\n";
-        $config .= "// Sets up WordPress vars and included files\n";
-        $config .= "require_once ABSPATH . 'wp-settings.php';\n";
-        
-        return $config;
-    }
-    
-    protected function installWordPress(Site $site, SSH2 $ssh)
-    {
-        // Install WordPress CLI
-        $ssh->exec("docker exec {$site->container_name} sh -c 'apt-get update && apt-get install -y wget less'");
-        $ssh->exec("docker exec {$site->container_name} sh -c 'curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar'");
-        $ssh->exec("docker exec {$site->container_name} sh -c 'chmod +x wp-cli.phar && mv wp-cli.phar /usr/local/bin/wp'");
-        
-        // Install WordPress
-        $ssh->exec("docker exec {$site->container_name} wp core install --url={$site->domain} --title='{$site->domain}' --admin_user={$site->admin_username} --admin_password={$site->admin_password} --admin_email={$site->admin_email}");
-        
-        // Install SSL certificate if enabled
-        if ($site->ssl['enabled'] ?? false) {
-            $ssh->exec("docker exec {$site->container_name} sh -c 'apt-get update && apt-get install -y certbot'");
-            $ssh->exec("docker exec {$site->container_name} sh -c 'certbot certonly --webroot -w /var/www/html -d {$site->domain} --non-interactive --agree-tos --email {$site->admin_email}'");
+        if (!file_exists($dir)) {
+            return;
         }
+
+        if (is_file($dir)) {
+            unlink($dir);
+            return;
+        }
+
+        $files = array_diff(scandir($dir), ['.', '..']);
+        
+        foreach ($files as $file) {
+            $path = $dir . DIRECTORY_SEPARATOR . $file;
+            
+            if (is_dir($path)) {
+                $this->deleteDirectory($path);
+            } else {
+                unlink($path);
+            }
+        }
+
+        rmdir($dir);
     }
 }

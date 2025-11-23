@@ -80,6 +80,26 @@ export interface Site {
     server: Server; // Nested server object
 }
 
+export interface Wordpress {
+    id: number;
+    site_name: string;
+    domain: string;
+    port: number;
+    container_name: string;
+    db_name: string;
+    db_user: string;
+    db_password: string;
+    db_root_password: string;
+    status: 'creating' | 'running' | 'stopped' | 'error';
+    error_message?: string | null;
+    admin_email: string;
+    admin_user: string;
+    admin_password: string;
+    created_at?: string;
+    updated_at?: string;
+}
+
+
 export interface WordPressSite {
     id: number;
     server_id: number;
