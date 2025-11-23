@@ -11,8 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('word_press_sites', function (Blueprint $table) {
+        Schema::create('wordpress_sites', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->string('name');
             $table->string('domain')->unique();
             $table->string('container_name')->unique();

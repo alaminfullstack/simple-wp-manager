@@ -2,17 +2,22 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Attributes\Boot;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class WordPressSite extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'word_press_sites';
+
     protected $fillable = [
         'name',
+        'user_id',
         'domain',
         'container_name',
         'server_ip',
@@ -115,4 +120,19 @@ class WordPressSite extends Model
         $protocol = $this->ssl_enabled ? 'https' : 'http';
         return "{$protocol}://{$this->domain}";
     }
+
+    // user id auto creating by auth id
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    protected static function boot(){
+        parent::boot();
+        static::creating(function ($model) {
+            $model->user_id = Auth::id();
+        });
+    }
+
+
 }
