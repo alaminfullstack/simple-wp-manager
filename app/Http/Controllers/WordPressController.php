@@ -36,8 +36,12 @@ class WordPressController extends Controller
                 ->with('error', 'Docker is not running or Docker Compose is not available. Please start Docker Desktop.');
         }
         
+        // Get all active servers
+        $servers = \App\Models\Server::where('status', 'active')->get();
+        
         return Inertia::render('WordPress/Create', [
-            'dockerStatus' => $dockerStatus
+            'dockerStatus' => $dockerStatus,
+            'servers' => $servers
         ]);
     }
 

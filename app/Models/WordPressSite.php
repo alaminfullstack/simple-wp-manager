@@ -16,6 +16,8 @@ class WordPressSite extends Model
     protected $table = 'wordpress_sites';
 
     protected $fillable = [
+        'server_id',
+        'is_remote',
         'site_name',
         'domain',
         'port',
@@ -32,9 +34,74 @@ class WordPressSite extends Model
     ];
 
     protected $casts = [
+        'is_remote' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    // Encrypt database passwords
+    public function setDbPasswordAttribute($value)
+    {
+        if ($value) {
+            $this->attributes['db_password'] = Crypt::encryptString($value);
+        }
+    }
+
+    public function getDbPasswordAttribute($value)
+    {
+        if ($value) {
+            try {
+                return Crypt::decryptString($value);
+            } catch (\Exception $e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    public function setDbRootPasswordAttribute($value)
+    {
+        if ($value) {
+            $this->attributes['db_root_password'] = Crypt::encryptString($value);
+        }
+    }
+
+    public function getDbRootPasswordAttribute($value)
+    {
+        if ($value) {
+            try {
+                return Crypt::decryptString($value);
+            } catch (\Exception $e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    public function setAdminPasswordAttribute($value)
+    {
+        if ($value) {
+            $this->attributes['admin_password'] = Crypt::encryptString($value);
+        }
+    }
+
+    public function getAdminPasswordAttribute($value)
+    {
+        if ($value) {
+            try {
+                return Crypt::decryptString($value);
+            } catch (\Exception $e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    // Relationships
+    public function server()
+    {
+        return $this->belongsTo(Server::class);
+    }
 
     // user id auto creating by auth id
     public function user()

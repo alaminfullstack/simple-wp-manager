@@ -41,9 +41,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ]);
     });
 
-    Route::resource('servers', ServerController::class);
+   
     Route::resource('sites', SiteController::class);
 
+    // Server Management Routes
+    Route::get('/servers', [ServerController::class, 'index'])->name('servers.index');
+    Route::get('/servers/create', [ServerController::class, 'create'])->name('servers.create');
+    Route::post('/servers', [ServerController::class, 'store'])->name('servers.store');
+    Route::get('/servers/{server}', [ServerController::class, 'show'])->name('servers.show');
+    Route::get('/servers/{server}/edit', [ServerController::class, 'edit'])->name('servers.edit');
+    Route::put('/servers/{server}', [ServerController::class, 'update'])->name('servers.update');
+    Route::delete('/servers/{server}', [ServerController::class, 'destroy'])->name('servers.destroy');
+    Route::post('/servers/{server}/test', [ServerController::class, 'testConnection'])->name('servers.test');
+    Route::post('/servers/{server}/install-monitor', [ServerController::class, 'installMonitorScript'])->name('servers.install-monitor');
+
+    // WordPress Sites Routes
     Route::get('/wordpress', [WordPressController::class, 'index'])->name('wordpress.index');
     Route::get('/wordpress/create', [WordPressController::class, 'create'])->name('wordpress.create');
     Route::post('/wordpress', [WordPressController::class, 'store'])->name('wordpress.store');
@@ -54,21 +66,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/wordpress/{site}/stop', [WordPressController::class, 'stop'])->name('wordpress.stop');
     Route::delete('/wordpress/{site}', [WordPressController::class, 'destroy'])->name('wordpress.destroy');
     Route::get('/wordpress/{site}/logs', [WordPressController::class, 'logs'])->name('wordpress.logs');
-
-    Route::get('sites/{site}/start', [SiteController::class, 'start'])->name('sites.start');
-    Route::get('sites/{site}/stop', [SiteController::class, 'stop'])->name('sites.stop');
-    Route::get('sites/{site}/restart', [SiteController::class, 'restart'])->name('sites.restart');
-
-    // WordPress Sites Management
-    Route::resource('wordpress-sites', WordPressSiteController::class);
-    
-    // Container Control Actions
-    Route::post('wordpress-sites/{site}/start', [WordPressSiteController::class, 'start'])
-        ->name('wordpress-sites.start');
-    Route::post('wordpress-sites/{site}/stop', [WordPressSiteController::class, 'stop'])
-        ->name('wordpress-sites.stop');
-    Route::post('wordpress-sites/{site}/restart', [WordPressSiteController::class, 'restart'])
-        ->name('wordpress-sites.restart');
     
 });
 

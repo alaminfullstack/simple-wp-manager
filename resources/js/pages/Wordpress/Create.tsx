@@ -1,22 +1,13 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import { dashboard } from '@/routes';
-import { type BreadcrumbItem } from '@/types';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard().url,
-    },
-];
-
-
-export default function Create() {
+export default function Create({ auth, servers }) {
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [generatedPassword, setGeneratedPassword] = useState('');
 
     const { data, setData, post, processing, errors } = useForm({
+        server_id: '',
         site_name: '',
         domain: 'localhost',
         port: 8080,
@@ -39,22 +30,13 @@ export default function Create() {
         setData('admin_password', password);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
-        post('/wordpress');
-    };
-
-    const generateRandomPassword = () => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-        let password = '';
-        for (let i = 0; i < 16; i++) {
-            password += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return password;
+        post(route('wordpress.store'));
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AuthenticatedLayout user={auth.user}>
             <Head title="Create WordPress Site" />
 
             <div className="py-12">
@@ -66,7 +48,7 @@ export default function Create() {
                                     Create New WordPress Site
                                 </h2>
                                 <Link
-                                    href={'/wordpress'}
+                                    href={route('wordpress.index')}
                                     className="text-sm text-gray-600 hover:text-gray-900"
                                 >
                                     ← Back to Sites
@@ -75,12 +57,50 @@ export default function Create() {
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                            {/* Server Selection */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-semibold text-gray-900">Deployment Location</h3>
+                                
+                                <div>
+                                    <label htmlFor="server_id" className="block text-sm font-medium text-gray-700">
+                                        Server
+                                    </label>
+                                    <select
+                                        id="server_id"
+                                        value={data.server_id}
+                                        onChange={(e) => setData('server_id', e.target.value)}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    >
+                                        <option value="">Local (This Machine)</option>
+                                        {servers && servers.map((server) => (
+                                            <option key={server.id} value={server.id}>
+                                                {server.name} ({server.ip_address})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {errors.server_id && (
+                                        <p className="mt-1 text-sm text-red-600">{errors.server_id}</p>
+                                    )}
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        {data.server_id ? 'Site will be deployed to the selected remote server' : 'Site will be deployed locally using Docker Desktop'}
+                                    </p>
+                                </div>
+
+                                {!servers || servers.length === 0 ? (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                        <p className="text-sm text-blue-700">
+                                            No remote servers configured. <Link href={route('servers.create')} className="font-medium underline">Add a server</Link> to deploy remotely.
+                                        </p>
+                                    </div>
+                                ) : null}
+                            </div>
+
                             {/* Basic Information */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
                                 
                                 <div>
-                                    <label htmlFor="site_name" className="block text-gray-700 text-sm font-bold mb-2">
+                                    <label htmlFor="site_name" className="block text-sm font-medium text-gray-700">
                                         Site Name *
                                     </label>
                                     <input
@@ -88,7 +108,7 @@ export default function Create() {
                                         id="site_name"
                                         value={data.site_name}
                                         onChange={(e) => setData('site_name', e.target.value)}
-                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                         placeholder="My WordPress Site"
                                         required
                                     />
@@ -99,29 +119,39 @@ export default function Create() {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="domain">Domain</label>
-                                        <input 
-                                            id="domain" 
-                                            type="text" 
-                                            placeholder="localhost" 
-                                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" 
-                                            value={data.domain} 
-                                            onChange={(e) => setData('domain', e.target.value)} />
-                                        {errors.domain && <div className="text-red-500 text-xs mt-1">{errors.domain}</div>}
+                                        <label htmlFor="domain" className="block text-sm font-medium text-gray-700">
+                                            Domain
+                                        </label>
+                                        <input
+                                            type="text"
+                                            id="domain"
+                                            value={data.domain}
+                                            onChange={(e) => setData('domain', e.target.value)}
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            placeholder="localhost"
+                                        />
+                                        {errors.domain && (
+                                            <p className="mt-1 text-sm text-red-600">{errors.domain}</p>
+                                        )}
                                     </div>
 
                                     <div>
-                                        <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="port">Port</label>
-                                        <input 
-                                            id="port" 
-                                            type="number" 
-                                            placeholder="localhost" 
-                                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" 
-                                            value={data.port} 
-                                            onChange={(e) => setData('port', Number(e.target.value))}
+                                        <label htmlFor="port" className="block text-sm font-medium text-gray-700">
+                                            Port
+                                        </label>
+                                        <input
+                                            type="number"
+                                            id="port"
+                                            value={data.port}
+                                            onChange={(e) => setData('port', e.target.value)}
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            placeholder="8080"
                                             min="1024"
-                                            max="65535" />
-                                        {errors.port && <div className="text-red-500 text-xs mt-1">{errors.port}</div>}
+                                            max="65535"
+                                        />
+                                        {errors.port && (
+                                            <p className="mt-1 text-sm text-red-600">{errors.port}</p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -131,7 +161,7 @@ export default function Create() {
                                 <h3 className="text-lg font-semibold text-gray-900">Admin Account</h3>
                                 
                                 <div>
-                                    <label htmlFor="admin_email" className="block text-gray-700 text-sm font-bold mb-2">
+                                    <label htmlFor="admin_email" className="block text-sm font-medium text-gray-700">
                                         Admin Email *
                                     </label>
                                     <input
@@ -139,7 +169,7 @@ export default function Create() {
                                         id="admin_email"
                                         value={data.admin_email}
                                         onChange={(e) => setData('admin_email', e.target.value)}
-                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                         placeholder="admin@example.com"
                                         required
                                     />
@@ -149,7 +179,7 @@ export default function Create() {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="admin_user" className="block text-gray-700 text-sm font-bold mb-2">
+                                    <label htmlFor="admin_user" className="block text-sm font-medium text-gray-700">
                                         Admin Username *
                                     </label>
                                     <input
@@ -157,7 +187,7 @@ export default function Create() {
                                         id="admin_user"
                                         value={data.admin_user}
                                         onChange={(e) => setData('admin_user', e.target.value)}
-                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                         placeholder="admin"
                                         required
                                     />
@@ -167,7 +197,7 @@ export default function Create() {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="admin_password" className="block text-gray-700 text-sm font-bold mb-2">
+                                    <label htmlFor="admin_password" className="block text-sm font-medium text-gray-700">
                                         Admin Password *
                                     </label>
                                     <div className="mt-1 flex rounded-md shadow-sm">
@@ -176,10 +206,10 @@ export default function Create() {
                                             id="admin_password"
                                             value={data.admin_password}
                                             onChange={(e) => setData('admin_password', e.target.value)}
-                                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
+                                            className="block w-full rounded-l-md border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                                             placeholder="Enter strong password"
                                             required
-                                            minLength={8}
+                                            minLength="8"
                                         />
                                         <button
                                             type="button"
@@ -216,7 +246,7 @@ export default function Create() {
                                 {showAdvanced && (
                                     <div className="space-y-4 pl-7">
                                         <div>
-                                            <label htmlFor="db_name" className="block text-gray-700 text-sm font-bold mb-2">
+                                            <label htmlFor="db_name" className="block text-sm font-medium text-gray-700">
                                                 Database Name
                                             </label>
                                             <input
@@ -224,7 +254,7 @@ export default function Create() {
                                                 id="db_name"
                                                 value={data.db_name}
                                                 onChange={(e) => setData('db_name', e.target.value)}
-                                                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                                 placeholder="wordpress"
                                             />
                                             {errors.db_name && (
@@ -233,7 +263,7 @@ export default function Create() {
                                         </div>
 
                                         <div>
-                                            <label htmlFor="db_user" className="block text-gray-700 text-sm font-bold mb-2">
+                                            <label htmlFor="db_user" className="block text-sm font-medium text-gray-700">
                                                 Database User
                                             </label>
                                             <input
@@ -241,7 +271,7 @@ export default function Create() {
                                                 id="db_user"
                                                 value={data.db_user}
                                                 onChange={(e) => setData('db_user', e.target.value)}
-                                                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                                 placeholder="wpuser"
                                             />
                                             {errors.db_user && (
@@ -250,7 +280,7 @@ export default function Create() {
                                         </div>
 
                                         <div>
-                                            <label htmlFor="db_password" className="block text-gray-700 text-sm font-bold mb-2">
+                                            <label htmlFor="db_password" className="block text-sm font-medium text-gray-700">
                                                 Database Password
                                             </label>
                                             <input
@@ -258,7 +288,7 @@ export default function Create() {
                                                 id="db_password"
                                                 value={data.db_password}
                                                 onChange={(e) => setData('db_password', e.target.value)}
-                                                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                                 placeholder="Auto-generated if empty"
                                             />
                                             {errors.db_password && (
@@ -272,7 +302,7 @@ export default function Create() {
                             {/* Submit Button */}
                             <div className="flex items-center justify-end space-x-4 pt-4 border-t">
                                 <Link
-                                    href={'/wordpress'}
+                                    href={route('wordpress.index')}
                                     className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                                 >
                                     Cancel
@@ -319,6 +349,6 @@ export default function Create() {
                     </div>
                 </div>
             </div>
-        </AppLayout>
+        </AuthenticatedLayout>
     );
 }

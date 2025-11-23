@@ -3,16 +3,20 @@
 namespace App\Services;
 
 use App\Models\WordPressSite;
+use App\Models\Server;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class DockerService
 {
     private $sitesPath;
+    private $sshService;
 
-    public function __construct()
+    public function __construct(SSHService $sshService = null)
     {
         $this->sitesPath = storage_path('wordpress-sites');
+        $this->sshService = $sshService;
+        
         if (!file_exists($this->sitesPath)) {
             mkdir($this->sitesPath, 0755, true);
         }
@@ -20,15 +24,16 @@ class DockerService
 
     public function createWordPressSite(array $data): WordPressSite
     {
-        // Generate unique identifiers
         $containerName = 'wp_' . uniqid();
-        $dbContainerName = 'wpdb_' . uniqid();
-        $port = $this->findAvailablePort($data['port'] ?? 8080);
+        $server = isset($data['server_id']) ? Server::find($data['server_id']) : null;
+        $isRemote = $server && !$server->isLocal();
+        $port = $this->findAvailablePort($data['port'] ?? 8080, $server);
 
-        // Create site record
         $site = WordPressSite::create([
+            'server_id' => $data['server_id'] ?? null,
+            'is_remote' => $isRemote,
             'site_name' => $data['site_name'],
-            'domain' => $data['domain'] ?? 'localhost',
+            'domain' => $data['domain'] ?? ($isRemote ? $server->ip_address : 'localhost'),
             'port' => $port,
             'container_name' => $containerName,
             'db_name' => $data['db_name'] ?? 'wordpress',
@@ -38,13 +43,15 @@ class DockerService
             'admin_email' => $data['admin_email'],
             'admin_user' => $data['admin_user'] ?? 'admin',
             'admin_password' => $data['admin_password'] ?? $this->generatePassword(),
-            'status' => 'creating',
+            'status' => 'deploying',
         ]);
 
         try {
-            $this->createDockerCompose($site);
-            $this->startContainers($site);
-            $this->waitForWordPress($site);
+            if ($isRemote) {
+                $this->createRemoteSite($site, $server);
+            } else {
+                $this->createLocalSite($site);
+            }
             
             $site->update(['status' => 'running']);
         } catch (\Exception $e) {
@@ -58,6 +65,273 @@ class DockerService
         return $site;
     }
 
+    private function createLocalSite(WordPressSite $site): void
+    {
+        $this->createDockerCompose($site);
+        $this->startContainers($site);
+        $this->waitForWordPress($site);
+    }
+
+    private function createRemoteSite(WordPressSite $site, Server $server): void
+    {
+        $ssh = new SSHService($server);
+        $ssh->connect();
+
+        $remotePath = "/var/www/wordpress-sites/{$site->container_name}";
+        $ssh->createDirectory($remotePath);
+
+        $dockerCompose = $this->generateDockerComposeContent($site);
+        $tempFile = sys_get_temp_dir() . '/docker-compose-' . $site->container_name . '.yml';
+        file_put_contents($tempFile, $dockerCompose);
+
+        $ssh->uploadFile($tempFile, "{$remotePath}/docker-compose.yml");
+        unlink($tempFile);
+
+        $result = $ssh->execute("cd {$remotePath} && docker compose up -d");
+        
+        if (!$result['success']) {
+            throw new \Exception("Failed to start remote containers: " . $result['output']);
+        }
+
+        $this->waitForRemoteWordPress($site, $ssh);
+        $ssh->disconnect();
+    }
+
+    public function stopSite(WordPressSite $site): void
+    {
+        if ($site->is_remote && $site->server) {
+            $this->stopRemoteSite($site);
+        } else {
+            $this->stopLocalSite($site);
+        }
+    }
+
+    private function stopLocalSite(WordPressSite $site): void
+    {
+        $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
+        
+        $process = new Process(['docker', 'compose', 'stop'], $sitePath);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            $process = new Process(['docker-compose', 'stop'], $sitePath);
+            $process->run();
+        }
+
+        if ($process->isSuccessful()) {
+            $site->update(['status' => 'stopped']);
+        }
+    }
+
+    private function stopRemoteSite(WordPressSite $site): void
+    {
+        $ssh = new SSHService($site->server);
+        $ssh->connect();
+
+        $remotePath = "/var/www/wordpress-sites/{$site->container_name}";
+        $result = $ssh->execute("cd {$remotePath} && docker compose stop");
+        
+        if ($result['success']) {
+            $site->update(['status' => 'stopped']);
+        }
+        
+        $ssh->disconnect();
+    }
+
+    public function startSite(WordPressSite $site): void
+    {
+        if ($site->is_remote && $site->server) {
+            $this->startRemoteSite($site);
+        } else {
+            $this->startLocalSite($site);
+        }
+    }
+
+    private function startLocalSite(WordPressSite $site): void
+    {
+        $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
+        
+        $process = new Process(['docker', 'compose', 'start'], $sitePath);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            $process = new Process(['docker-compose', 'start'], $sitePath);
+            $process->run();
+        }
+
+        if ($process->isSuccessful()) {
+            $site->update(['status' => 'running']);
+        }
+    }
+
+    private function startRemoteSite(WordPressSite $site): void
+    {
+        $ssh = new SSHService($site->server);
+        $ssh->connect();
+
+        $remotePath = "/var/www/wordpress-sites/{$site->container_name}";
+        $result = $ssh->execute("cd {$remotePath} && docker compose start");
+        
+        if ($result['success']) {
+            $site->update(['status' => 'running']);
+        }
+        
+        $ssh->disconnect();
+    }
+
+    public function deleteSite(WordPressSite $site): void
+    {
+        if ($site->is_remote && $site->server) {
+            $this->deleteRemoteSite($site);
+        } else {
+            $this->deleteLocalSite($site);
+        }
+    }
+
+    private function deleteLocalSite(WordPressSite $site): void
+    {
+        $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
+        
+        $process = new Process(['docker', 'compose', 'down', '-v'], $sitePath);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            $process = new Process(['docker-compose', 'down', '-v'], $sitePath);
+            $process->run();
+        }
+
+        if (file_exists($sitePath)) {
+            $this->deleteDirectory($sitePath);
+        }
+
+        $site->delete();
+    }
+
+    private function deleteRemoteSite(WordPressSite $site): void
+    {
+        $ssh = new SSHService($site->server);
+        $ssh->connect();
+
+        $remotePath = "/var/www/wordpress-sites/{$site->container_name}";
+        $ssh->execute("cd {$remotePath} && docker compose down -v");
+        $ssh->execute("rm -rf {$remotePath}");
+        
+        $ssh->disconnect();
+        $site->delete();
+    }
+
+    public function getSiteLogs(WordPressSite $site, int $lines = 100): string
+    {
+        if ($site->is_remote && $site->server) {
+            return $this->getRemoteSiteLogs($site, $lines);
+        }
+        
+        $process = new Process(['docker', 'logs', '--tail', (string)$lines, $site->container_name]);
+        $process->run();
+
+        return $process->getOutput() ?: 'No logs available';
+    }
+
+    private function getRemoteSiteLogs(WordPressSite $site, int $lines): string
+    {
+        $ssh = new SSHService($site->server);
+        $ssh->connect();
+
+        $result = $ssh->execute("docker logs --tail {$lines} {$site->container_name}");
+        $ssh->disconnect();
+
+        return $result['output'] ?: 'No logs available';
+    }
+
+    public function updateWordPressSite(WordPressSite $site, array $data): WordPressSite
+    {
+        $needsRecreation = 
+            (isset($data['port']) && $data['port'] != $site->port) ||
+            (isset($data['db_name']) && $data['db_name'] != $site->db_name) ||
+            (isset($data['db_user']) && $data['db_user'] != $site->db_user) ||
+            (isset($data['db_password']) && $data['db_password'] != $site->db_password);
+
+        try {
+            if ($needsRecreation) {
+                $this->stopSite($site);
+                
+                $site->update([
+                    'site_name' => $data['site_name'] ?? $site->site_name,
+                    'domain' => $data['domain'] ?? $site->domain,
+                    'port' => $data['port'] ?? $site->port,
+                    'db_name' => $data['db_name'] ?? $site->db_name,
+                    'db_user' => $data['db_user'] ?? $site->db_user,
+                    'db_password' => $data['db_password'] ?? $site->db_password,
+                    'admin_email' => $data['admin_email'] ?? $site->admin_email,
+                    'admin_user' => $data['admin_user'] ?? $site->admin_user,
+                    'admin_password' => $data['admin_password'] ?? $site->admin_password,
+                    'status' => 'deploying',
+                ]);
+
+                if ($site->is_remote && $site->server) {
+                    $this->recreateRemoteSite($site);
+                } else {
+                    $this->recreateLocalSite($site);
+                }
+                
+                $site->update(['status' => 'running']);
+            } else {
+                $site->update([
+                    'site_name' => $data['site_name'] ?? $site->site_name,
+                    'domain' => $data['domain'] ?? $site->domain,
+                    'admin_email' => $data['admin_email'] ?? $site->admin_email,
+                    'admin_user' => $data['admin_user'] ?? $site->admin_user,
+                    'admin_password' => $data['admin_password'] ?? $site->admin_password,
+                ]);
+            }
+        } catch (\Exception $e) {
+            $site->update([
+                'status' => 'error',
+                'error_message' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+
+        return $site->fresh();
+    }
+
+    private function recreateLocalSite(WordPressSite $site): void
+    {
+        $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
+        
+        $process = new Process(['docker', 'compose', 'down'], $sitePath);
+        $process->run();
+        
+        $this->createDockerCompose($site);
+        $this->startContainers($site);
+        $this->waitForWordPress($site);
+    }
+
+    private function recreateRemoteSite(WordPressSite $site): void
+    {
+        $ssh = new SSHService($site->server);
+        $ssh->connect();
+
+        $remotePath = "/var/www/wordpress-sites/{$site->container_name}";
+        $ssh->execute("cd {$remotePath} && docker compose down");
+
+        $dockerCompose = $this->generateDockerComposeContent($site);
+        $tempFile = sys_get_temp_dir() . '/docker-compose-' . $site->container_name . '.yml';
+        file_put_contents($tempFile, $dockerCompose);
+
+        $ssh->uploadFile($tempFile, "{$remotePath}/docker-compose.yml");
+        unlink($tempFile);
+
+        $result = $ssh->execute("cd {$remotePath} && docker compose up -d");
+        
+        if (!$result['success']) {
+            throw new \Exception("Failed to start remote containers: " . $result['output']);
+        }
+
+        $this->waitForRemoteWordPress($site, $ssh);
+        $ssh->disconnect();
+    }
+
     private function createDockerCompose(WordPressSite $site): void
     {
         $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
@@ -66,7 +340,14 @@ class DockerService
             mkdir($sitePath, 0755, true);
         }
 
-        $dockerCompose = <<<YAML
+        $dockerCompose = $this->generateDockerComposeContent($site);
+        $composePath = $sitePath . DIRECTORY_SEPARATOR . 'docker-compose.yml';
+        file_put_contents($composePath, $dockerCompose);
+    }
+
+    private function generateDockerComposeContent(WordPressSite $site): string
+    {
+        return <<<YAML
 version: '3.8'
 
 services:
@@ -110,22 +391,17 @@ networks:
   {$site->container_name}_network:
     driver: bridge
 YAML;
-
-        $composePath = $sitePath . DIRECTORY_SEPARATOR . 'docker-compose.yml';
-        file_put_contents($composePath, $dockerCompose);
     }
 
     private function startContainers(WordPressSite $site): void
     {
         $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
         
-        // Use 'docker compose' command (Docker Desktop modern syntax)
         $process = new Process(['docker', 'compose', 'up', '-d'], $sitePath);
         $process->setTimeout(300);
         $process->run();
 
         if (!$process->isSuccessful()) {
-            // Try old syntax if new one fails
             $process = new Process(['docker-compose', 'up', '-d'], $sitePath);
             $process->setTimeout(300);
             $process->run();
@@ -153,12 +429,10 @@ YAML;
                 $headers = @get_headers($url, 1, $context);
                 
                 if ($headers && (strpos($headers[0], '200') !== false || strpos($headers[0], '302') !== false)) {
-                    // Give it a few more seconds to fully initialize
                     sleep(3);
                     return;
                 }
             } catch (\Exception $e) {
-                // Continue waiting
             }
             
             sleep(2);
@@ -168,152 +442,38 @@ YAML;
         throw new \Exception('WordPress site failed to start within timeout period');
     }
 
-    public function stopSite(WordPressSite $site): void
+    private function waitForRemoteWordPress(WordPressSite $site, SSHService $ssh, int $maxAttempts = 30): void
     {
-        $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
-        
-        // Try new syntax first
-        $process = new Process(['docker', 'compose', 'stop'], $sitePath);
-        $process->run();
+        $attempts = 0;
 
-        if (!$process->isSuccessful()) {
-            // Try old syntax
-            $process = new Process(['docker-compose', 'stop'], $sitePath);
-            $process->run();
-        }
-
-        if ($process->isSuccessful()) {
-            $site->update(['status' => 'stopped']);
-        }
-    }
-
-    public function startSite(WordPressSite $site): void
-    {
-        $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
-        
-        // Try new syntax first
-        $process = new Process(['docker', 'compose', 'start'], $sitePath);
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            // Try old syntax
-            $process = new Process(['docker-compose', 'start'], $sitePath);
-            $process->run();
-        }
-
-        if ($process->isSuccessful()) {
-            $site->update(['status' => 'running']);
-        }
-    }
-
-    public function deleteSite(WordPressSite $site): void
-    {
-        $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
-        
-        // Stop and remove containers with volumes
-        $process = new Process(['docker', 'compose', 'down', '-v'], $sitePath);
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            // Try old syntax
-            $process = new Process(['docker-compose', 'down', '-v'], $sitePath);
-            $process->run();
-        }
-
-        // Remove directory
-        if (file_exists($sitePath)) {
-            $this->deleteDirectory($sitePath);
-        }
-
-        $site->delete();
-    }
-
-    public function getSiteLogs(WordPressSite $site, int $lines = 100): string
-    {
-        $process = new Process(['docker', 'logs', '--tail', (string)$lines, $site->container_name]);
-        $process->run();
-
-        return $process->getOutput() ?: 'No logs available';
-    }
-
-    public function updateWordPressSite(WordPressSite $site, array $data): WordPressSite
-    {
-        // Check if critical changes require container recreation
-        $needsRecreation = 
-            (isset($data['port']) && $data['port'] != $site->port) ||
-            (isset($data['db_name']) && $data['db_name'] != $site->db_name) ||
-            (isset($data['db_user']) && $data['db_user'] != $site->db_user) ||
-            (isset($data['db_password']) && $data['db_password'] != $site->db_password);
-
-        try {
-            if ($needsRecreation) {
-                // Stop existing containers
-                $this->stopSite($site);
-                
-                // Update site data
-                $site->update([
-                    'site_name' => $data['site_name'] ?? $site->site_name,
-                    'domain' => $data['domain'] ?? $site->domain,
-                    'port' => $data['port'] ?? $site->port,
-                    'db_name' => $data['db_name'] ?? $site->db_name,
-                    'db_user' => $data['db_user'] ?? $site->db_user,
-                    'db_password' => $data['db_password'] ?? $site->db_password,
-                    'admin_email' => $data['admin_email'] ?? $site->admin_email,
-                    'admin_user' => $data['admin_user'] ?? $site->admin_user,
-                    'admin_password' => $data['admin_password'] ?? $site->admin_password,
-                    'status' => 'creating',
-                ]);
-
-                // Recreate docker-compose with new settings
-                $this->createDockerCompose($site);
-                
-                // Remove old containers
-                $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
-                $process = new Process(['docker', 'compose', 'down'], $sitePath);
-                $process->run();
-                
-                // Start with new configuration
-                $this->startContainers($site);
-                $this->waitForWordPress($site);
-                
-                $site->update(['status' => 'running']);
-            } else {
-                // Simple update without recreation
-                $site->update([
-                    'site_name' => $data['site_name'] ?? $site->site_name,
-                    'domain' => $data['domain'] ?? $site->domain,
-                    'admin_email' => $data['admin_email'] ?? $site->admin_email,
-                    'admin_user' => $data['admin_user'] ?? $site->admin_user,
-                    'admin_password' => $data['admin_password'] ?? $site->admin_password,
-                ]);
+        while ($attempts < $maxAttempts) {
+            $result = $ssh->execute("docker inspect -f '{{.State.Running}}' {$site->container_name}");
+            
+            if ($result['success'] && trim($result['output']) === 'true') {
+                sleep(3);
+                return;
             }
-        } catch (\Exception $e) {
-            $site->update([
-                'status' => 'error',
-                'error_message' => $e->getMessage()
-            ]);
-            throw $e;
+            
+            sleep(2);
+            $attempts++;
         }
 
-        return $site->fresh();
+        throw new \Exception('WordPress site failed to start within timeout period');
     }
 
     public function checkDockerAvailability(): array
     {
-        // Check if Docker is running
         $process = new Process(['docker', 'info']);
         $process->run();
 
         $dockerRunning = $process->isSuccessful();
 
-        // Check Docker Compose
         $process = new Process(['docker', 'compose', 'version']);
         $process->run();
         
         $composeAvailable = $process->isSuccessful();
         
         if (!$composeAvailable) {
-            // Try old syntax
             $process = new Process(['docker-compose', '--version']);
             $process->run();
             $composeAvailable = $process->isSuccessful();
@@ -326,19 +486,26 @@ YAML;
         ];
     }
 
-    private function findAvailablePort(int $startPort = 8080): int
+    private function findAvailablePort(int $startPort = 8080, ?Server $server = null): int
     {
         $port = $startPort;
-        $maxPort = 9000; // Limit search range
+        $maxPort = 9000;
         
         while ($port < $maxPort) {
-            if (!WordPressSite::where('port', $port)->exists()) {
+            $query = WordPressSite::where('port', $port);
+            
+            if ($server) {
+                $query->where('server_id', $server->id);
+            } else {
+                $query->whereNull('server_id');
+            }
+            
+            if (!$query->exists()) {
                 return $port;
             }
             $port++;
         }
 
-        // If all ports in range are taken, throw exception
         throw new \Exception('No available ports found in range 8080-9000');
     }
 

@@ -2,136 +2,211 @@
 
 namespace App\Services;
 
-use Exception;
+use App\Models\Server;
 use phpseclib3\Net\SSH2;
 use phpseclib3\Crypt\PublicKeyLoader;
 
 class SSHService
 {
-    protected SSH2 $ssh;
-    protected string $host;
-    protected int $port;
+    private $ssh;
+    private $server;
 
-    public function __construct(string $host, int $port = 22)
+    public function __construct(Server $server = null)
     {
-        $this->host = $host;
-        $this->port = $port;
-        $this->ssh = new SSH2($host, $port);
-        $this->ssh->setTimeout(30);
+        $this->server = $server;
     }
 
-    /**
-     * Connect using password authentication
-     */
-    public function connectWithPassword(string $username, string $password): bool
+    public function connect(Server $server = null): bool
     {
+        if ($server) {
+            $this->server = $server;
+        }
+
+        if (!$this->server) {
+            throw new \Exception('No server specified for SSH connection');
+        }
+
+        // Check if local server
+        if ($this->server->isLocal()) {
+            return true; // Skip SSH for localhost
+        }
+
         try {
-            if (!$this->ssh->login($username, $password)) {
-                throw new Exception('SSH authentication failed with password');
+            $this->ssh = new SSH2($this->server->ip_address, $this->server->ssh_port);
+
+            // Connect using password or key
+            if ($this->server->connection_type === 'key' && $this->server->ssh_key) {
+                $key = PublicKeyLoader::load($this->server->ssh_key);
+                $login = $this->ssh->login($this->server->ssh_user, $key);
+            } else {
+                $login = $this->ssh->login($this->server->ssh_user, $this->server->ssh_password);
             }
+
+            if (!$login) {
+                throw new \Exception('SSH authentication failed');
+            }
+
+            // Update server status
+            $this->server->update([
+                'status' => 'active',
+                'last_connected_at' => now(),
+                'last_error' => null
+            ]);
+
             return true;
-        } catch (Exception $e) {
-            throw new Exception("SSH connection failed: " . $e->getMessage());
+        } catch (\Exception $e) {
+            $this->server->update([
+                'status' => 'error',
+                'last_error' => $e->getMessage()
+            ]);
+            throw $e;
         }
     }
 
-    /**
-     * Connect using SSH key authentication
-     */
-    public function connectWithKey(string $username, string $privateKey): bool
-    {
-        try {
-            $key = PublicKeyLoader::load($privateKey);
-            if (!$this->ssh->login($username, $key)) {
-                throw new Exception('SSH authentication failed with key');
-            }
-            return true;
-        } catch (Exception $e) {
-            throw new Exception("SSH key authentication failed: " . $e->getMessage());
-        }
-    }
-
-    /**
-     * Execute a command on the remote server
-     */
     public function execute(string $command): array
     {
-        $output = $this->ssh->exec($command);
-        $exitStatus = $this->ssh->getExitStatus();
-        
+        // If local server, use local execution
+        if ($this->server && $this->server->isLocal()) {
+            return $this->executeLocal($command);
+        }
+
+        if (!$this->ssh) {
+            $this->connect();
+        }
+
+        try {
+            $output = $this->ssh->exec($command);
+            $exitStatus = $this->ssh->getExitStatus();
+
+            return [
+                'success' => $exitStatus === 0,
+                'output' => $output,
+                'exit_code' => $exitStatus
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'output' => '',
+                'error' => $e->getMessage(),
+                'exit_code' => 1
+            ];
+        }
+    }
+
+    private function executeLocal(string $command): array
+    {
+        $process = new \Symfony\Component\Process\Process(explode(' ', $command));
+        $process->run();
+
         return [
-            'output' => $output,
-            'exit_status' => $exitStatus,
-            'success' => $exitStatus === 0,
+            'success' => $process->isSuccessful(),
+            'output' => $process->getOutput(),
+            'exit_code' => $process->getExitStatus()
         ];
     }
 
-    /**
-     * Execute multiple commands
-     */
-    public function executeMultiple(array $commands): array
-    {
-        $results = [];
-        foreach ($commands as $command) {
-            $results[] = $this->execute($command);
-        }
-        return $results;
-    }
-
-    /**
-     * Upload a file to the remote server
-     */
     public function uploadFile(string $localPath, string $remotePath): bool
     {
-        return $this->ssh->put($remotePath, $localPath, SSH2::SOURCE_LOCAL_FILE);
+        if ($this->server && $this->server->isLocal()) {
+            return copy($localPath, $remotePath);
+        }
+
+        if (!$this->ssh) {
+            $this->connect();
+        }
+
+        try {
+            $sftp = $this->ssh->getSFTPObject();
+            return $sftp->put($remotePath, $localPath, \phpseclib3\Net\SFTP::SOURCE_LOCAL_FILE);
+        } catch (\Exception $e) {
+            throw new \Exception("File upload failed: " . $e->getMessage());
+        }
     }
 
-    /**
-     * Create a file with content on remote server
-     */
-    public function createFile(string $remotePath, string $content): bool
+    public function downloadFile(string $remotePath, string $localPath): bool
     {
-        return $this->ssh->put($remotePath, $content);
+        if ($this->server && $this->server->isLocal()) {
+            return copy($remotePath, $localPath);
+        }
+
+        if (!$this->ssh) {
+            $this->connect();
+        }
+
+        try {
+            $sftp = $this->ssh->getSFTPObject();
+            return $sftp->get($remotePath, $localPath);
+        } catch (\Exception $e) {
+            throw new \Exception("File download failed: " . $e->getMessage());
+        }
     }
 
-    /**
-     * Check if a command exists on the remote server
-     */
-    public function commandExists(string $command): bool
+    public function fileExists(string $remotePath): bool
     {
-        $result = $this->execute("which {$command}");
-        return $result['success'];
+        if ($this->server && $this->server->isLocal()) {
+            return file_exists($remotePath);
+        }
+
+        if (!$this->ssh) {
+            $this->connect();
+        }
+
+        try {
+            $sftp = $this->ssh->getSFTPObject();
+            return $sftp->file_exists($remotePath);
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
-    /**
-     * Check if Docker is installed
-     */
-    public function isDockerInstalled(): bool
+    public function createDirectory(string $remotePath, int $mode = 0755): bool
     {
-        return $this->commandExists('docker');
+        if ($this->server && $this->server->isLocal()) {
+            return mkdir($remotePath, $mode, true);
+        }
+
+        if (!$this->ssh) {
+            $this->connect();
+        }
+
+        try {
+            $sftp = $this->ssh->getSFTPObject();
+            return $sftp->mkdir($remotePath, $mode, true);
+        } catch (\Exception $e) {
+            throw new \Exception("Directory creation failed: " . $e->getMessage());
+        }
     }
 
-    /**
-     * Check if Docker Compose is installed
-     */
-    public function isDockerComposeInstalled(): bool
+    public function testConnection(): array
     {
-        return $this->commandExists('docker-compose') || $this->commandExists('docker compose');
+        try {
+            $this->connect();
+            
+            $result = $this->execute('echo "Connection test successful"');
+            
+            return [
+                'success' => true,
+                'message' => 'Connection successful',
+                'output' => $result['output']
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
+        }
     }
 
-    /**
-     * Disconnect SSH connection
-     */
     public function disconnect(): void
     {
-        $this->ssh->disconnect();
+        if ($this->ssh) {
+            $this->ssh->disconnect();
+            $this->ssh = null;
+        }
     }
 
-    /**
-     * Get the underlying SSH2 instance
-     */
-    public function getConnection(): SSH2
+    public function __destruct()
     {
-        return $this->ssh;
+        $this->disconnect();
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,43 +12,92 @@ class Server extends Model
     use HasFactory;
     
     protected $fillable = [
-        'user_id',
         'name',
         'ip_address',
-        'port',
-        'username',
-        'private_key',
-        'password',
-        'path',
-        'active',
+        'ssh_port',
+        'ssh_user',
+        'ssh_password',
+        'ssh_key',
+        'connection_type',
+        'status',
+        'last_error',
+        'last_connected_at',
     ];
-    
+
     protected $casts = [
-        'active' => 'boolean',
+        'last_connected_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
-    
-    public function sites()
+
+    protected $hidden = [
+        'ssh_password',
+        'ssh_key',
+    ];
+
+    // Encrypt SSH password
+    public function setSshPasswordAttribute($value)
     {
-        return $this->hasMany(Site::class);
+        if ($value) {
+            $this->attributes['ssh_password'] = Crypt::encryptString($value);
+        }
     }
-    
-    public function setPrivateKeyAttribute($value)
+
+    // Decrypt SSH password
+    public function getSshPasswordAttribute($value)
     {
-        $this->attributes['private_key'] = $value ? Crypt::encrypt($value) : null;
+        if ($value) {
+            try {
+                return Crypt::decryptString($value);
+            } catch (\Exception $e) {
+                return null;
+            }
+        }
+        return null;
     }
-    
-    public function getPrivateKeyAttribute($value)
+
+    // Encrypt SSH key
+    public function setSshKeyAttribute($value)
     {
-        return $value ? Crypt::decrypt($value) : null;
+        if ($value) {
+            $this->attributes['ssh_key'] = Crypt::encryptString($value);
+        }
     }
-    
-    public function setPasswordAttribute($value)
+
+    // Decrypt SSH key
+    public function getSshKeyAttribute($value)
     {
-        $this->attributes['password'] = $value ? Crypt::encrypt($value) : null;
+        if ($value) {
+            try {
+                return Crypt::decryptString($value);
+            } catch (\Exception $e) {
+                return null;
+            }
+        }
+        return null;
     }
-    
-    public function getPasswordAttribute($value)
+
+    // Relationships
+    public function wordPressSites()
     {
-        return $value ? Crypt::decrypt($value) : null;
+        return $this->hasMany(WordPressSite::class);
+    }
+
+    // Helper methods
+    public function isLocal(): bool
+    {
+        return in_array($this->ip_address, ['localhost', '127.0.0.1', '::1']);
+    }
+
+    public function getConnectionString(): string
+    {
+        return "{$this->ssh_user}@{$this->ip_address}";
+    }
+
+    protected static function boot(){
+        parent::boot();
+        static::creating(function ($model) {
+            $model->user_id = Auth::id();
+        });
     }
 }

@@ -16,12 +16,14 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->string('name');
             $table->string('ip_address');
-            $table->integer('port')->default(22);
-            $table->string('username');
-            $table->text('private_key')->nullable(); // Encrypted
-            $table->string('password')->nullable(); // Encrypted
-            $table->string('path')->default('/var/www');
-            $table->boolean('active')->default(true);
+            $table->integer('ssh_port')->default(22);
+            $table->string('ssh_user');
+            $table->text('ssh_password')->nullable(); // Encrypted
+            $table->text('ssh_key')->nullable(); // Encrypted private key
+            $table->enum('connection_type', ['password', 'key'])->default('password');
+            $table->enum('status', ['active', 'inactive', 'error'])->default('active');
+            $table->text('last_error')->nullable();
+            $table->timestamp('last_connected_at')->nullable();
             $table->timestamps();
         });
     }
