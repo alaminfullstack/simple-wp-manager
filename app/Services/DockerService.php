@@ -236,6 +236,68 @@ YAML;
         return $process->getOutput() ?: 'No logs available';
     }
 
+    public function updateWordPressSite(WordPressSite $site, array $data): WordPressSite
+    {
+        // Check if critical changes require container recreation
+        $needsRecreation = 
+            (isset($data['port']) && $data['port'] != $site->port) ||
+            (isset($data['db_name']) && $data['db_name'] != $site->db_name) ||
+            (isset($data['db_user']) && $data['db_user'] != $site->db_user) ||
+            (isset($data['db_password']) && $data['db_password'] != $site->db_password);
+
+        try {
+            if ($needsRecreation) {
+                // Stop existing containers
+                $this->stopSite($site);
+                
+                // Update site data
+                $site->update([
+                    'site_name' => $data['site_name'] ?? $site->site_name,
+                    'domain' => $data['domain'] ?? $site->domain,
+                    'port' => $data['port'] ?? $site->port,
+                    'db_name' => $data['db_name'] ?? $site->db_name,
+                    'db_user' => $data['db_user'] ?? $site->db_user,
+                    'db_password' => $data['db_password'] ?? $site->db_password,
+                    'admin_email' => $data['admin_email'] ?? $site->admin_email,
+                    'admin_user' => $data['admin_user'] ?? $site->admin_user,
+                    'admin_password' => $data['admin_password'] ?? $site->admin_password,
+                    'status' => 'creating',
+                ]);
+
+                // Recreate docker-compose with new settings
+                $this->createDockerCompose($site);
+                
+                // Remove old containers
+                $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
+                $process = new Process(['docker', 'compose', 'down'], $sitePath);
+                $process->run();
+                
+                // Start with new configuration
+                $this->startContainers($site);
+                $this->waitForWordPress($site);
+                
+                $site->update(['status' => 'running']);
+            } else {
+                // Simple update without recreation
+                $site->update([
+                    'site_name' => $data['site_name'] ?? $site->site_name,
+                    'domain' => $data['domain'] ?? $site->domain,
+                    'admin_email' => $data['admin_email'] ?? $site->admin_email,
+                    'admin_user' => $data['admin_user'] ?? $site->admin_user,
+                    'admin_password' => $data['admin_password'] ?? $site->admin_password,
+                ]);
+            }
+        } catch (\Exception $e) {
+            $site->update([
+                'status' => 'error',
+                'error_message' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+
+        return $site->fresh();
+    }
+
     public function checkDockerAvailability(): array
     {
         // Check if Docker is running

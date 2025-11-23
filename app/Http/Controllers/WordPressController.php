@@ -84,6 +84,50 @@ class WordPressController extends Controller
         ]);
     }
 
+    public function edit(WordPressSite $site)
+    {
+        $dockerStatus = $this->dockerService->checkDockerAvailability();
+        
+        return Inertia::render('WordPress/Edit', [
+            'site' => $site,
+            'dockerStatus' => $dockerStatus
+        ]);
+    }
+
+    public function update(Request $request, WordPressSite $site)
+    {
+        $validated = $request->validate([
+            'site_name' => 'required|string|max:255',
+            'domain' => 'nullable|string|max:255',
+            'port' => 'nullable|integer|min:1024|max:65535|unique:wordpress_sites,port,' . $site->id,
+            'admin_email' => 'required|email',
+            'admin_user' => 'required|string|max:255',
+            'admin_password' => 'nullable|string|min:8',
+            'db_name' => 'nullable|string|max:255',
+            'db_user' => 'nullable|string|max:255',
+            'db_password' => 'nullable|string|min:8',
+        ]);
+
+        // Remove empty password fields
+        if (empty($validated['admin_password'])) {
+            unset($validated['admin_password']);
+        }
+        if (empty($validated['db_password'])) {
+            unset($validated['db_password']);
+        }
+
+        try {
+            $this->dockerService->updateWordPressSite($site, $validated);
+            
+            return redirect()->route('wordpress.show', $site)
+                ->with('success', 'WordPress site updated successfully!');
+        } catch (\Exception $e) {
+            return back()
+                ->withInput()
+                ->with('error', 'Failed to update WordPress site: ' . $e->getMessage());
+        }
+    }
+
     public function start(WordPressSite $site)
     {
         try {

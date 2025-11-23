@@ -44,10 +44,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('servers', ServerController::class);
     Route::resource('sites', SiteController::class);
 
-     Route::get('/wordpress', [WordPressController::class, 'index'])->name('wordpress.index');
+    Route::get('/wordpress', [WordPressController::class, 'index'])->name('wordpress.index');
     Route::get('/wordpress/create', [WordPressController::class, 'create'])->name('wordpress.create');
     Route::post('/wordpress', [WordPressController::class, 'store'])->name('wordpress.store');
     Route::get('/wordpress/{site}', [WordPressController::class, 'show'])->name('wordpress.show');
+    Route::get('/wordpress/{site}/edit', [WordPressController::class, 'edit'])->name('wordpress.edit');
+    Route::put('/wordpress/{site}', [WordPressController::class, 'update'])->name('wordpress.update');
     Route::post('/wordpress/{site}/start', [WordPressController::class, 'start'])->name('wordpress.start');
     Route::post('/wordpress/{site}/stop', [WordPressController::class, 'stop'])->name('wordpress.stop');
     Route::delete('/wordpress/{site}', [WordPressController::class, 'destroy'])->name('wordpress.destroy');
