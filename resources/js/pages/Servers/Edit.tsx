@@ -1,17 +1,17 @@
 import React from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
-import { dashboard } from '@/routes';
+
 import { type BreadcrumbItem, type ServerListItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
-        href: dashboard().url,
+        href: '/dashboard',
     },
     {
         title: 'Servers',
-        href: route('servers.index'),
+        href: '/servers',
     },
 ];
 
@@ -34,7 +34,7 @@ export default function Edit({ server }: ServerEditProps) {
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        put(route('servers.update', server.id));
+        put(`/servers/${server.id}`);
     };
 
     return (
@@ -50,7 +50,7 @@ export default function Edit({ server }: ServerEditProps) {
                                     Edit Server
                                 </h2>
                                 <Link
-                                    href={route('servers.show', server.id)}
+                                    href={`/servers/${server.id}`}
                                     className="text-sm text-gray-600 hover:text-gray-900"
                                 >
                                     ← Back to Server
@@ -211,7 +211,7 @@ export default function Edit({ server }: ServerEditProps) {
                             {/* Submit Button */}
                             <div className="flex items-center justify-end space-x-4 pt-4 border-t">
                                 <Link
-                                    href={route('servers.show', server.id)}
+                                    href={`/servers/${server.id}`}
                                     className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest hover:bg-gray-50"
                                 >
                                     Cancel

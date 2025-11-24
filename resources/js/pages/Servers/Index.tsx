@@ -1,13 +1,13 @@
 import React from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
-import { dashboard } from '@/routes';
+
 import { type BreadcrumbItem, type ServerListItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
-        href: dashboard().url,
+        href: '/dashboard',
     },
 ];
 
@@ -27,13 +27,13 @@ export default function Index({ servers }: ServerIndexProps) {
 
     const handleDelete = (serverId: number, serverName: string) => {
         if (confirm(`Are you sure you want to delete "${serverName}"? This action cannot be undone.`)) {
-            router.delete(route('servers.destroy', serverId));
+            router.delete(`/servers/${serverId}`);
         }
     };
 
     const testConnection = async (serverId: number) => {
         try {
-            const response = await fetch(route('servers.test', serverId), {
+            const response = await fetch(`/servers/${serverId}/test`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -66,7 +66,7 @@ export default function Index({ servers }: ServerIndexProps) {
                                     Remote Servers
                                 </h2>
                                 <Link
-                                    href={route('servers.create')}
+                                    href="/servers/create"
                                     className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700"
                                 >
                                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -87,7 +87,7 @@ export default function Index({ servers }: ServerIndexProps) {
                                     <p className="mt-1 text-sm text-gray-500">Get started by adding a remote server.</p>
                                     <div className="mt-6">
                                         <Link
-                                            href={route('servers.create')}
+                                            href="/servers/create"
                                             className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700"
                                         >
                                             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,13 +135,13 @@ export default function Index({ servers }: ServerIndexProps) {
                                                 <div className="flex flex-col space-y-2">
                                                     <div className="flex space-x-2">
                                                         <Link
-                                                            href={route('servers.show', server.id)}
+                                                            href={`/servers/${server.id}`}
                                                             className="flex-1 inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                                                         >
                                                             View
                                                         </Link>
                                                         <Link
-                                                            href={route('servers.edit', server.id)}
+                                                            href={`/servers/${server.id}/edit`}
                                                             className="inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                                                         >
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

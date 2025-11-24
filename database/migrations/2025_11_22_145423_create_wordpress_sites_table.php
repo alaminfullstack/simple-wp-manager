@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('wordpress_sites', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('server_id')->nullable()->after('id')->constrained()->onDelete('cascade');
+            $table->foreignId('server_id')->nullable()->constrained('servers')->onDelete('cascade');
             $table->boolean('is_remote')->default(false);
             $table->string('site_name');
             $table->string('domain');
@@ -39,6 +39,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('word_press_sites');
+        Schema::dropIfExists('wordpress_sites');
     }
 };

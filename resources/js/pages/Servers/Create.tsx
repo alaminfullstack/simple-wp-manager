@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
-import { dashboard } from '@/routes';
+
 import { type BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
-        href: dashboard().url,
+        href: '/dashboard',
     },
     {
         title: 'Servers',
-        href: route('servers.index'),
+        href: '/servers',
     },
 ];
 
@@ -30,7 +30,7 @@ export default function Create() {
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        post(route('servers.store'));
+        post('/servers');
     };
 
     return (
@@ -46,7 +46,7 @@ export default function Create() {
                                     Add Remote Server
                                 </h2>
                                 <Link
-                                    href={route('servers.index')}
+                                    href="/servers"
                                     className="text-sm text-gray-600 hover:text-gray-900"
                                 >
                                     ← Back to Servers
@@ -213,7 +213,7 @@ export default function Create() {
                             {/* Submit Button */}
                             <div className="flex items-center justify-end space-x-4 pt-4 border-t">
                                 <Link
-                                    href={route('servers.index')}
+                                    href="/servers"
                                     className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest hover:bg-gray-50"
                                 >
                                     Cancel

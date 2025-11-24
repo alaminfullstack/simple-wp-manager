@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
-import { dashboard } from '@/routes';
+
 import { type BreadcrumbItem, type ServerListItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
-        href: dashboard().url,
+        href: '/dashboard',
     },
     {
         title: 'Servers',
-        href: route('servers.index'),
+        href: '/servers',
     },
 ];
 
@@ -54,7 +54,7 @@ export default function Show({ server }: ServerShowProps) {
     const testConnection = async () => {
         setTesting(true);
         try {
-            const response = await fetch(route('servers.test', server.id), {
+            const response = await fetch(`/servers/${server.id}/test`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -83,14 +83,14 @@ export default function Show({ server }: ServerShowProps) {
         }
 
         setInstalling(true);
-        router.post(route('servers.install-monitor', server.id), {}, {
+        router.post(`/servers/${server.id}/install-monitor`, {}, {
             onFinish: () => setInstalling(false)
         });
     };
 
     const handleDelete = () => {
         if (confirm(`Are you sure you want to delete "${server.name}"? This action cannot be undone.`)) {
-            router.delete(route('servers.destroy', server.id));
+            router.delete(`/servers/${server.id}`);
         }
     };
 
@@ -116,7 +116,7 @@ export default function Show({ server }: ServerShowProps) {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <Link
-                                        href={route('servers.index')}
+                                        href="/servers"
                                         className="text-sm text-gray-600 hover:text-gray-900 mb-2 inline-block"
                                     >
                                         ← Back to Servers
@@ -135,7 +135,7 @@ export default function Show({ server }: ServerShowProps) {
                                         {testing ? 'Testing...' : 'Test Connection'}
                                     </button>
                                     <Link
-                                        href={route('servers.edit', server.id)}
+                                        href={`/servers/${server.id}/edit`}
                                         className="inline-flex items-center px-4 py-2 bg-gray-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700"
                                     >
                                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -236,7 +236,7 @@ export default function Show({ server }: ServerShowProps) {
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-lg font-semibold text-gray-900">WordPress Sites</h3>
                                 <Link
-                                    href={route('wordpress.create')}
+                                    href="/wordpress/create"
                                     className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700"
                                 >
                                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -264,7 +264,7 @@ export default function Show({ server }: ServerShowProps) {
                                                 </div>
                                                 <div className="flex space-x-2">
                                                     <Link
-                                                        href={route('wordpress.show', site.id)}
+                                                        href={`/wordpress/${site.id}`}
                                                         className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                                                     >
                                                         View
