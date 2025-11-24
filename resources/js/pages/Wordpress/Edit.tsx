@@ -2,26 +2,31 @@ import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
-import { type BreadcrumbItem, Wordpress } from '@/types';
+import { type BreadcrumbItem, Wordpress, Server } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
         href: dashboard().url,
     },
+    {
+        title: 'WordPress Sites',
+        href: '/wordpress',
+    },
 ];
 
 interface SitesEditProps {
     site: Wordpress;
+    servers: Server[];
 }
 
-
-export default function Edit({ site }: SitesEditProps) {
+export default function Edit({ site, servers }: SitesEditProps) {
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [generatedPassword, setGeneratedPassword] = useState('');
 
     const { data, setData, put, processing, errors } = useForm({
         site_name: site.site_name || '',
+        server_id: site.server_id || 1,
         domain: site.domain || 'localhost',
         port: site.port || 8080,
         admin_email: site.admin_email || '',
@@ -44,15 +49,15 @@ export default function Edit({ site }: SitesEditProps) {
     };
 
     const criticalFieldsChanged = () => {
-        return data.port != site.port || 
-               data.db_name != site.db_name || 
-               data.db_user != site.db_user || 
-               (data.db_password && data.db_password != site.db_password);
+        return data.port != site.port ||
+            data.db_name != site.db_name ||
+            data.db_user != site.db_user ||
+            (data.db_password && data.db_password != site.db_password);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put(`/wordpress-sites/${site.id}`);
+        put(`/wordpress/${site.id}`);
     };
 
     return (
@@ -77,10 +82,28 @@ export default function Edit({ site }: SitesEditProps) {
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                            {/* Deployment Location (Read Only) */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-semibold text-gray-900">Deployment Location</h3>
+                                <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                                    <div className="flex items-center text-sm text-gray-600">
+                                        <svg className="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                                        </svg>
+                                        <span className="font-medium mr-2">Server:</span>
+                                        {site.server ? (
+                                            <span>{site.server.name} ({site.server.ip_address})</span>
+                                        ) : (
+                                            <span>Local (Docker Desktop)</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Basic Information */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
-                                
+
                                 <div>
                                     <label htmlFor="site_name" className="block text-gray-700 text-sm font-bold mb-2">
                                         Site Name *
@@ -146,7 +169,7 @@ export default function Edit({ site }: SitesEditProps) {
                             {/* Admin Information */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Admin Account</h3>
-                                
+
                                 <div>
                                     <label htmlFor="admin_email" className="block text-gray-700 text-sm font-bold mb-2">
                                         Admin Email *

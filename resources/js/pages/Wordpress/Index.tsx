@@ -9,6 +9,10 @@ const breadcrumbs: BreadcrumbItem[] = [
         title: 'Dashboard',
         href: dashboard().url,
     },
+    {
+        title: 'WordPress Sites',
+        href: '/wordpress',
+    },
 ];
 
 interface SitesIndexProps {
@@ -27,10 +31,10 @@ export default function Index({ sites, dockerStatus }: SitesIndexProps) {
             creating: 'bg-blue-100 text-blue-800',
             error: 'bg-red-100 text-red-800',
         };
-         return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+        return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
     };
 
-    const handleDelete = (siteId:number, siteName:string) => {
+    const handleDelete = (siteId: number, siteName: string) => {
         if (confirm(`Are you sure you want to delete "${siteName}"? This action cannot be undone.`)) {
             router.delete(`/wordpress/${siteId}`);
         }
@@ -133,7 +137,7 @@ export default function Index({ sites, dockerStatus }: SitesIndexProps) {
                                                     >
                                                         View
                                                     </Link>
-                                                   <Link
+                                                    <Link
                                                         href={`/wordpress/${site.id}/edit`}
                                                         className="inline-flex justify-center items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                                     >

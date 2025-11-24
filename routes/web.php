@@ -41,31 +41,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ]);
     });
 
-   
-    Route::resource('sites', SiteController::class);
-
     // Server Management Routes
-    Route::get('/servers', [ServerController::class, 'index'])->name('servers.index');
-    Route::get('/servers/create', [ServerController::class, 'create'])->name('servers.create');
-    Route::post('/servers', [ServerController::class, 'store'])->name('servers.store');
-    Route::get('/servers/{server}', [ServerController::class, 'show'])->name('servers.show');
-    Route::get('/servers/{server}/edit', [ServerController::class, 'edit'])->name('servers.edit');
-    Route::put('/servers/{server}', [ServerController::class, 'update'])->name('servers.update');
-    Route::delete('/servers/{server}', [ServerController::class, 'destroy'])->name('servers.destroy');
     Route::post('/servers/{server}/test', [ServerController::class, 'testConnection'])->name('servers.test');
     Route::post('/servers/{server}/install-monitor', [ServerController::class, 'installMonitorScript'])->name('servers.install-monitor');
+    Route::resource('servers', ServerController::class);
 
     // WordPress Sites Routes
-    Route::get('/wordpress', [WordPressController::class, 'index'])->name('wordpress.index');
-    Route::get('/wordpress/create', [WordPressController::class, 'create'])->name('wordpress.create');
-    Route::post('/wordpress', [WordPressController::class, 'store'])->name('wordpress.store');
-    Route::get('/wordpress/{site}', [WordPressController::class, 'show'])->name('wordpress.show');
-    Route::get('/wordpress/{site}/edit', [WordPressController::class, 'edit'])->name('wordpress.edit');
-    Route::put('/wordpress/{site}', [WordPressController::class, 'update'])->name('wordpress.update');
     Route::post('/wordpress/{site}/start', [WordPressController::class, 'start'])->name('wordpress.start');
     Route::post('/wordpress/{site}/stop', [WordPressController::class, 'stop'])->name('wordpress.stop');
-    Route::delete('/wordpress/{site}', [WordPressController::class, 'destroy'])->name('wordpress.destroy');
     Route::get('/wordpress/{site}/logs', [WordPressController::class, 'logs'])->name('wordpress.logs');
+    Route::resource('wordpress', WordPressController::class);
     
 });
 

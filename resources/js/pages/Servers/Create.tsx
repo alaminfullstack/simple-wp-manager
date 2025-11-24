@@ -60,7 +60,7 @@ export default function Create() {
                                 <h3 className="text-lg font-semibold text-gray-900">Server Information</h3>
 
                                 <div>
-                                    <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="name" className="block text-gray-700 text-sm font-bold mb-2">
                                         Server Name *
                                     </label>
                                     <input
@@ -68,7 +68,7 @@ export default function Create() {
                                         id="name"
                                         value={data.name}
                                         onChange={(e) => setData('name', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                         placeholder="Production Server 1"
                                         required
                                     />
@@ -79,7 +79,7 @@ export default function Create() {
 
                                 <div className="grid grid-cols-3 gap-4">
                                     <div className="col-span-2">
-                                        <label htmlFor="ip_address" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="ip_address" className="block text-gray-700 text-sm font-bold mb-2">
                                             IP Address *
                                         </label>
                                         <input
@@ -87,7 +87,7 @@ export default function Create() {
                                             id="ip_address"
                                             value={data.ip_address}
                                             onChange={(e) => setData('ip_address', e.target.value)}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                             placeholder="192.168.1.100"
                                             required
                                         />
@@ -97,7 +97,7 @@ export default function Create() {
                                     </div>
 
                                     <div>
-                                        <label htmlFor="ssh_port" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="ssh_port" className="block text-gray-700 text-sm font-bold mb-2">
                                             SSH Port *
                                         </label>
                                         <input
@@ -105,7 +105,7 @@ export default function Create() {
                                             id="ssh_port"
                                             value={data.ssh_port}
                                             onChange={(e) => setData('ssh_port', parseInt(e.target.value))}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                             placeholder="22"
                                             min="1"
                                             max="65535"
@@ -118,7 +118,7 @@ export default function Create() {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="ssh_user" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="ssh_user" className="block text-gray-700 text-sm font-bold mb-2">
                                         SSH Username *
                                     </label>
                                     <input
@@ -126,7 +126,7 @@ export default function Create() {
                                         id="ssh_user"
                                         value={data.ssh_user}
                                         onChange={(e) => setData('ssh_user', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                         placeholder="root"
                                         required
                                     />
@@ -167,7 +167,7 @@ export default function Create() {
 
                                 {data.connection_type === 'password' ? (
                                     <div>
-                                        <label htmlFor="ssh_password" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="ssh_password" className="block text-gray-700 text-sm font-bold mb-2">
                                             SSH Password *
                                         </label>
                                         <input
@@ -175,7 +175,7 @@ export default function Create() {
                                             id="ssh_password"
                                             value={data.ssh_password}
                                             onChange={(e) => setData('ssh_password', e.target.value)}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                             placeholder="Enter SSH password"
                                             required={data.connection_type === 'password'}
                                         />
@@ -188,7 +188,7 @@ export default function Create() {
                                     </div>
                                 ) : (
                                     <div>
-                                        <label htmlFor="ssh_key" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="ssh_key" className="block text-gray-700 text-sm font-bold mb-2">
                                             SSH Private Key *
                                         </label>
                                         <textarea
@@ -196,7 +196,7 @@ export default function Create() {
                                             value={data.ssh_key}
                                             onChange={(e) => setData('ssh_key', e.target.value)}
                                             rows={8}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-sm"
+                                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 font-mono text-sm"
                                             placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"
                                             required={data.connection_type === 'key'}
                                         />

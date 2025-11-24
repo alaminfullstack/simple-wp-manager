@@ -64,7 +64,7 @@ export default function Edit({ server }: ServerEditProps) {
                                 <h3 className="text-lg font-semibold text-gray-900">Server Information</h3>
 
                                 <div>
-                                    <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="name" className="block text-gray-700 text-sm font-bold mb-2">
                                         Server Name *
                                     </label>
                                     <input
@@ -72,7 +72,7 @@ export default function Edit({ server }: ServerEditProps) {
                                         id="name"
                                         value={data.name}
                                         onChange={(e) => setData('name', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                         required
                                     />
                                     {errors.name && (
@@ -82,7 +82,7 @@ export default function Edit({ server }: ServerEditProps) {
 
                                 <div className="grid grid-cols-3 gap-4">
                                     <div className="col-span-2">
-                                        <label htmlFor="ip_address" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="ip_address" className="block text-gray-700 text-sm font-bold mb-2">
                                             IP Address *
                                         </label>
                                         <input
@@ -90,7 +90,7 @@ export default function Edit({ server }: ServerEditProps) {
                                             id="ip_address"
                                             value={data.ip_address}
                                             onChange={(e) => setData('ip_address', e.target.value)}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                             required
                                         />
                                         {errors.ip_address && (
@@ -99,7 +99,7 @@ export default function Edit({ server }: ServerEditProps) {
                                     </div>
 
                                     <div>
-                                        <label htmlFor="ssh_port" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="ssh_port" className="block text-gray-700 text-sm font-bold mb-2">
                                             SSH Port *
                                         </label>
                                         <input
@@ -107,7 +107,7 @@ export default function Edit({ server }: ServerEditProps) {
                                             id="ssh_port"
                                             value={data.ssh_port}
                                             onChange={(e) => setData('ssh_port', parseInt(e.target.value))}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                             min="1"
                                             max="65535"
                                             required
@@ -119,7 +119,7 @@ export default function Edit({ server }: ServerEditProps) {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="ssh_user" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="ssh_user" className="block text-gray-700 text-sm font-bold mb-2">
                                         SSH Username *
                                     </label>
                                     <input
@@ -127,7 +127,7 @@ export default function Edit({ server }: ServerEditProps) {
                                         id="ssh_user"
                                         value={data.ssh_user}
                                         onChange={(e) => setData('ssh_user', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                         required
                                     />
                                     {errors.ssh_user && (
@@ -167,7 +167,7 @@ export default function Edit({ server }: ServerEditProps) {
 
                                 {data.connection_type === 'password' ? (
                                     <div>
-                                        <label htmlFor="ssh_password" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="ssh_password" className="block text-gray-700 text-sm font-bold mb-2">
                                             SSH Password
                                         </label>
                                         <input
@@ -175,7 +175,7 @@ export default function Edit({ server }: ServerEditProps) {
                                             id="ssh_password"
                                             value={data.ssh_password}
                                             onChange={(e) => setData('ssh_password', e.target.value)}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                             placeholder="Leave empty to keep current password"
                                         />
                                         {errors.ssh_password && (
@@ -187,7 +187,7 @@ export default function Edit({ server }: ServerEditProps) {
                                     </div>
                                 ) : (
                                     <div>
-                                        <label htmlFor="ssh_key" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="ssh_key" className="block text-gray-700 text-sm font-bold mb-2">
                                             SSH Private Key
                                         </label>
                                         <textarea
@@ -195,7 +195,7 @@ export default function Edit({ server }: ServerEditProps) {
                                             value={data.ssh_key}
                                             onChange={(e) => setData('ssh_key', e.target.value)}
                                             rows={8}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-sm"
+                                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 font-mono text-sm"
                                             placeholder="Leave empty to keep current key"
                                         />
                                         {errors.ssh_key && (

@@ -9,6 +9,10 @@ const breadcrumbs: BreadcrumbItem[] = [
         title: 'Dashboard',
         href: dashboard().url,
     },
+    {
+        title: 'WordPress Sites',
+        href: '/wordpress',
+    },
 ];
 
 interface ServerProps {
@@ -45,7 +49,7 @@ export default function Create({ servers }: ServerProps) {
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        post(route('wordpress.store'));
+        post(`/wordpress`);
     };
 
     return (
@@ -61,7 +65,7 @@ export default function Create({ servers }: ServerProps) {
                                     Create New WordPress Site
                                 </h2>
                                 <Link
-                                    href={route('wordpress.index')}
+                                    href={`/wordpress`}
                                     className="text-sm text-gray-600 hover:text-gray-900"
                                 >
                                     ← Back to Sites
@@ -75,14 +79,14 @@ export default function Create({ servers }: ServerProps) {
                                 <h3 className="text-lg font-semibold text-gray-900">Deployment Location</h3>
 
                                 <div>
-                                    <label htmlFor="server_id" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="server_id" className="block text-gray-700 text-sm font-bold mb-2">
                                         Server
                                     </label>
                                     <select
                                         id="server_id"
                                         value={data.server_id}
                                         onChange={(e) => setData('server_id', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                     >
                                         <option value="">Local (This Machine)</option>
                                         {servers && servers.map((server) => (
@@ -102,7 +106,7 @@ export default function Create({ servers }: ServerProps) {
                                 {!servers || servers.length === 0 ? (
                                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                         <p className="text-sm text-blue-700">
-                                            No remote servers configured. <Link href={route('servers.create')} className="font-medium underline">Add a server</Link> to deploy remotely.
+                                            No remote servers configured. <Link href={`/wordpress/create`} className="font-medium underline">Add a server</Link> to deploy remotely.
                                         </p>
                                     </div>
                                 ) : null}
@@ -113,7 +117,7 @@ export default function Create({ servers }: ServerProps) {
                                 <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
 
                                 <div>
-                                    <label htmlFor="site_name" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="site_name" className="block text-gray-700 text-sm font-bold mb-2">
                                         Site Name *
                                     </label>
                                     <input
@@ -121,7 +125,7 @@ export default function Create({ servers }: ServerProps) {
                                         id="site_name"
                                         value={data.site_name}
                                         onChange={(e) => setData('site_name', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                         placeholder="My WordPress Site"
                                         required
                                     />
@@ -132,7 +136,7 @@ export default function Create({ servers }: ServerProps) {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label htmlFor="domain" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="domain" className="block text-gray-700 text-sm font-bold mb-2">
                                             Domain
                                         </label>
                                         <input
@@ -140,7 +144,7 @@ export default function Create({ servers }: ServerProps) {
                                             id="domain"
                                             value={data.domain}
                                             onChange={(e) => setData('domain', e.target.value)}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                             placeholder="localhost"
                                         />
                                         {errors.domain && (
@@ -149,7 +153,7 @@ export default function Create({ servers }: ServerProps) {
                                     </div>
 
                                     <div>
-                                        <label htmlFor="port" className="block text-sm font-medium text-gray-700">
+                                        <label htmlFor="port" className="block text-gray-700 text-sm font-bold mb-2">
                                             Port
                                         </label>
                                         <input
@@ -157,7 +161,7 @@ export default function Create({ servers }: ServerProps) {
                                             id="port"
                                             value={data.port}
                                             onChange={(e) => setData('port', parseInt(e.target.value))}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                             placeholder="8080"
                                             min="1024"
                                             max="65535"
@@ -174,7 +178,7 @@ export default function Create({ servers }: ServerProps) {
                                 <h3 className="text-lg font-semibold text-gray-900">Admin Account</h3>
 
                                 <div>
-                                    <label htmlFor="admin_email" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="admin_email" className="block text-gray-700 text-sm font-bold mb-2">
                                         Admin Email *
                                     </label>
                                     <input
@@ -182,7 +186,7 @@ export default function Create({ servers }: ServerProps) {
                                         id="admin_email"
                                         value={data.admin_email}
                                         onChange={(e) => setData('admin_email', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                         placeholder="admin@example.com"
                                         required
                                     />
@@ -192,7 +196,7 @@ export default function Create({ servers }: ServerProps) {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="admin_user" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="admin_user" className="block text-gray-700 text-sm font-bold mb-2">
                                         Admin Username *
                                     </label>
                                     <input
@@ -200,7 +204,7 @@ export default function Create({ servers }: ServerProps) {
                                         id="admin_user"
                                         value={data.admin_user}
                                         onChange={(e) => setData('admin_user', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                         placeholder="admin"
                                         required
                                     />
@@ -210,7 +214,7 @@ export default function Create({ servers }: ServerProps) {
                                 </div>
 
                                 <div>
-                                    <label htmlFor="admin_password" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="admin_password" className="block text-gray-700 text-sm font-bold mb-2">
                                         Admin Password *
                                     </label>
                                     <div className="mt-1 flex rounded-md shadow-sm">
@@ -219,7 +223,7 @@ export default function Create({ servers }: ServerProps) {
                                             id="admin_password"
                                             value={data.admin_password}
                                             onChange={(e) => setData('admin_password', e.target.value)}
-                                            className="block w-full rounded-l-md border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                            className="shadow appearance-none border rounded-l w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                                             placeholder="Enter strong password"
                                             required
                                             minLength={8}
@@ -259,7 +263,7 @@ export default function Create({ servers }: ServerProps) {
                                 {showAdvanced && (
                                     <div className="space-y-4 pl-7">
                                         <div>
-                                            <label htmlFor="db_name" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="db_name" className="block text-gray-700 text-sm font-bold mb-2">
                                                 Database Name
                                             </label>
                                             <input
@@ -267,7 +271,7 @@ export default function Create({ servers }: ServerProps) {
                                                 id="db_name"
                                                 value={data.db_name}
                                                 onChange={(e) => setData('db_name', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                                 placeholder="wordpress"
                                             />
                                             {errors.db_name && (
@@ -276,7 +280,7 @@ export default function Create({ servers }: ServerProps) {
                                         </div>
 
                                         <div>
-                                            <label htmlFor="db_user" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="db_user" className="block text-gray-700 text-sm font-bold mb-2">
                                                 Database User
                                             </label>
                                             <input
@@ -284,7 +288,7 @@ export default function Create({ servers }: ServerProps) {
                                                 id="db_user"
                                                 value={data.db_user}
                                                 onChange={(e) => setData('db_user', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                                 placeholder="wpuser"
                                             />
                                             {errors.db_user && (
@@ -293,7 +297,7 @@ export default function Create({ servers }: ServerProps) {
                                         </div>
 
                                         <div>
-                                            <label htmlFor="db_password" className="block text-sm font-medium text-gray-700">
+                                            <label htmlFor="db_password" className="block text-gray-700 text-sm font-bold mb-2">
                                                 Database Password
                                             </label>
                                             <input
@@ -301,7 +305,7 @@ export default function Create({ servers }: ServerProps) {
                                                 id="db_password"
                                                 value={data.db_password}
                                                 onChange={(e) => setData('db_password', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
                                                 placeholder="Auto-generated if empty"
                                             />
                                             {errors.db_password && (
@@ -315,7 +319,7 @@ export default function Create({ servers }: ServerProps) {
                             {/* Submit Button */}
                             <div className="flex items-center justify-end space-x-4 pt-4 border-t">
                                 <Link
-                                    href={route('wordpress.index')}
+                                    href={`/wordpress`}
                                     className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                                 >
                                     Cancel
@@ -354,8 +358,22 @@ export default function Create({ servers }: ServerProps) {
                             </svg>
                             <div className="ml-3">
                                 <h3 className="text-sm font-medium text-blue-800">Note</h3>
-                                <div className="mt-2 text-sm text-blue-700">
-                                    <p>Creating a WordPress site may take 1-2 minutes. The site will be accessible at http://{data.domain}:{data.port} once ready.</p>
+                                <div className="mt-2 text-sm text-blue-700 space-y-1">
+                                    {data.server_id ? (
+                                        <>
+                                            <p>• Site will be deployed to the selected remote server</p>
+                                            <p>• Your local Docker Desktop does not need to be running</p>
+                                            <p>• Deployment will happen via SSH on the remote server</p>
+                                            <p>• This may take 2-3 minutes</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p>• Site will be deployed locally using Docker Desktop</p>
+                                            <p>• <strong>Docker Desktop must be running</strong> on your computer</p>
+                                            <p>• Site will be accessible at http://{data.domain}:{data.port}</p>
+                                            <p>• Deployment may take 1-2 minutes</p>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>

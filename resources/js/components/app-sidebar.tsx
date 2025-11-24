@@ -29,8 +29,8 @@ const mainNavItems: NavItem[] = [
         icon: Folder,
     },
     {
-        title: 'Sites',
-        href: '/sites',
+        title: 'WordPress Sites',
+        href: '/wordpress',
         icon: BookOpen,
     },
 ];

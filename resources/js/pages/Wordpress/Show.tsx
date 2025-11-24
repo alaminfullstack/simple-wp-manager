@@ -66,7 +66,7 @@ export default function Show({ site }: SitesShowProps) {
         }
     };
 
-    const copyToClipboard = (text:string, field: string) => {
+    const copyToClipboard = (text: string, field: string) => {
         navigator.clipboard.writeText(text).then(() => {
             setCopySuccess({ ...copySuccess, [field]: true });
             setTimeout(() => {
@@ -84,13 +84,7 @@ export default function Show({ site }: SitesShowProps) {
         };
 
         const config = statusConfig[site.status] || statusConfig.stopped;
-        
-        return (
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.color}`}>
-                <span className="mr-2">{config.icon}</span>
-                {site.status.charAt(0).toUpperCase() + site.status.slice(1)}
-            </span>
-        );
+
     };
 
     const InfoRow = ({ label, value, copyable = false }: InfoRowProps) => (
@@ -125,9 +119,9 @@ export default function Show({ site }: SitesShowProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Site: ${site.site_name}`} />
-               
 
-             <div className="py-12">
+
+            <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
                     {/* Header */}
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">

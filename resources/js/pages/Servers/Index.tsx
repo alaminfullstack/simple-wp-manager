@@ -9,6 +9,10 @@ const breadcrumbs: BreadcrumbItem[] = [
         title: 'Dashboard',
         href: '/dashboard',
     },
+    {
+        title: 'Servers',
+        href: '/servers',
+    },
 ];
 
 interface ServerIndexProps {
