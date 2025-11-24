@@ -31,6 +31,11 @@ export interface SharedData {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
+    flash: {
+        message?: string;
+        success?: string;
+        error?: string;
+    };
     sidebarOpen: boolean;
     [key: string]: unknown;
 }
