@@ -1,8 +1,36 @@
 import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import AppLayout from '@/layouts/app-layout';
+import { dashboard } from '@/routes';
+import { type BreadcrumbItem, type ServerListItem } from '@/types';
 
-export default function Show({ auth, server }) {
+const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'Dashboard',
+        href: dashboard().url,
+    },
+    {
+        title: 'Servers',
+        href: route('servers.index'),
+    },
+];
+
+interface ServerShowProps {
+    server: ServerListItem & {
+        connection_type?: string;
+        last_connected_at?: string;
+        last_error?: string;
+        word_press_sites?: Array<{
+            id: number;
+            site_name: string;
+            domain: string;
+            port: number;
+            status: string;
+        }>;
+    };
+}
+
+export default function Show({ server }: ServerShowProps) {
     const [testing, setTesting] = useState(false);
     const [installing, setInstalling] = useState(false);
 
@@ -13,8 +41,8 @@ export default function Show({ auth, server }) {
             error: { color: 'bg-red-100 text-red-800', icon: '✕' },
         };
 
-        const config = statusConfig[server.status] || statusConfig.inactive;
-        
+        const config = statusConfig[server.status as keyof typeof statusConfig] || statusConfig.inactive;
+
         return (
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.color}`}>
                 <span className="mr-2">{config.icon}</span>
@@ -30,19 +58,19 @@ export default function Show({ auth, server }) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
                 alert('✅ Connection successful!\n\n' + data.message);
                 router.reload();
             } else {
                 alert('❌ Connection failed!\n\n' + data.message);
             }
-        } catch (error) {
+        } catch (error: any) {
             alert('❌ Connection test failed!\n\n' + error.message);
         } finally {
             setTesting(false);
@@ -66,8 +94,8 @@ export default function Show({ auth, server }) {
         }
     };
 
-    const getSiteStatusColor = (status) => {
-        const colors = {
+    const getSiteStatusColor = (status: string) => {
+        const colors: Record<string, string> = {
             running: 'bg-green-100 text-green-800',
             stopped: 'bg-gray-100 text-gray-800',
             deploying: 'bg-blue-100 text-blue-800',
@@ -77,7 +105,7 @@ export default function Show({ auth, server }) {
     };
 
     return (
-        <AuthenticatedLayout user={auth.user}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Server - ${server.name}`} />
 
             <div className="py-12">
@@ -288,6 +316,6 @@ export default function Show({ auth, server }) {
                     )}
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </AppLayout>
     );
 }

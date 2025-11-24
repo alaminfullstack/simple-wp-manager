@@ -1,8 +1,21 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import AppLayout from '@/layouts/app-layout';
+import { dashboard } from '@/routes';
+import { type BreadcrumbItem, Server } from '@/types';
 
-export default function Create({ auth, servers }) {
+const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'Dashboard',
+        href: dashboard().url,
+    },
+];
+
+interface ServerProps {
+    servers: Server[];
+}
+
+export default function Create({ servers }: ServerProps) {
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [generatedPassword, setGeneratedPassword] = useState('');
 
@@ -30,13 +43,13 @@ export default function Create({ auth, servers }) {
         setData('admin_password', password);
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         post(route('wordpress.store'));
     };
 
     return (
-        <AuthenticatedLayout user={auth.user}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Create WordPress Site" />
 
             <div className="py-12">
@@ -60,7 +73,7 @@ export default function Create({ auth, servers }) {
                             {/* Server Selection */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Deployment Location</h3>
-                                
+
                                 <div>
                                     <label htmlFor="server_id" className="block text-sm font-medium text-gray-700">
                                         Server
@@ -98,7 +111,7 @@ export default function Create({ auth, servers }) {
                             {/* Basic Information */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
-                                
+
                                 <div>
                                     <label htmlFor="site_name" className="block text-sm font-medium text-gray-700">
                                         Site Name *
@@ -143,7 +156,7 @@ export default function Create({ auth, servers }) {
                                             type="number"
                                             id="port"
                                             value={data.port}
-                                            onChange={(e) => setData('port', e.target.value)}
+                                            onChange={(e) => setData('port', parseInt(e.target.value))}
                                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                             placeholder="8080"
                                             min="1024"
@@ -159,7 +172,7 @@ export default function Create({ auth, servers }) {
                             {/* Admin Information */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Admin Account</h3>
-                                
+
                                 <div>
                                     <label htmlFor="admin_email" className="block text-sm font-medium text-gray-700">
                                         Admin Email *
@@ -209,7 +222,7 @@ export default function Create({ auth, servers }) {
                                             className="block w-full rounded-l-md border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                                             placeholder="Enter strong password"
                                             required
-                                            minLength="8"
+                                            minLength={8}
                                         />
                                         <button
                                             type="button"
@@ -349,6 +362,6 @@ export default function Create({ auth, servers }) {
                     </div>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </AppLayout>
     );
 }

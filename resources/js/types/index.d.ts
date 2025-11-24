@@ -51,13 +51,21 @@ export interface Server {
     id: number;
     name: string;
     ip_address: string;
+    ssh_port: number;
+    ssh_user: string;
     port: number;
     username: string;
     path: string;
     private_key: string;
+    status: 'active' | 'inactive' | 'error';
     active: boolean;
     created_at: string;
     updated_at: string;
+}
+
+// Server with sites count for list views
+export interface ServerListItem extends Server {
+    word_press_sites_count?: number;
 }
 
 export interface Site {
@@ -112,7 +120,7 @@ export interface WordPressSite {
     masked_server_ip: string;
     wp_version: string;
     ssl_enabled: boolean | null;
-    last_checked_at : string | null;
+    last_checked_at: string | null;
     server_ip: string;
     server_port: string;
     server_username: string;

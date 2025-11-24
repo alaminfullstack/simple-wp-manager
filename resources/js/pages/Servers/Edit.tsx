@@ -1,8 +1,27 @@
 import React from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import AppLayout from '@/layouts/app-layout';
+import { dashboard } from '@/routes';
+import { type BreadcrumbItem, type ServerListItem } from '@/types';
 
-export default function Edit({ auth, server }) {
+const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'Dashboard',
+        href: dashboard().url,
+    },
+    {
+        title: 'Servers',
+        href: route('servers.index'),
+    },
+];
+
+interface ServerEditProps {
+    server: ServerListItem & {
+        connection_type?: string;
+    };
+}
+
+export default function Edit({ server }: ServerEditProps) {
     const { data, setData, put, processing, errors } = useForm({
         name: server.name || '',
         ip_address: server.ip_address || '',
@@ -13,13 +32,13 @@ export default function Edit({ auth, server }) {
         ssh_key: '',
     });
 
-    const handleSubmit = (e) => {
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         put(route('servers.update', server.id));
     };
 
     return (
-        <AuthenticatedLayout user={auth.user}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Edit Server - ${server.name}`} />
 
             <div className="py-12">
@@ -43,7 +62,7 @@ export default function Edit({ auth, server }) {
                             {/* Server Information */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Server Information</h3>
-                                
+
                                 <div>
                                     <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                                         Server Name *
@@ -87,7 +106,7 @@ export default function Edit({ auth, server }) {
                                             type="number"
                                             id="ssh_port"
                                             value={data.ssh_port}
-                                            onChange={(e) => setData('ssh_port', e.target.value)}
+                                            onChange={(e) => setData('ssh_port', parseInt(e.target.value))}
                                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                             min="1"
                                             max="65535"
@@ -120,7 +139,7 @@ export default function Edit({ auth, server }) {
                             {/* Authentication Method */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Update Authentication</h3>
-                                
+
                                 <div className="flex space-x-4">
                                     <label className="flex items-center">
                                         <input
@@ -175,7 +194,7 @@ export default function Edit({ auth, server }) {
                                             id="ssh_key"
                                             value={data.ssh_key}
                                             onChange={(e) => setData('ssh_key', e.target.value)}
-                                            rows="8"
+                                            rows={8}
                                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-sm"
                                             placeholder="Leave empty to keep current key"
                                         />
@@ -239,6 +258,6 @@ export default function Edit({ auth, server }) {
                     </div>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </AppLayout>
     );
 }

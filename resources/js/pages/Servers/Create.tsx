@@ -1,8 +1,21 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import AppLayout from '@/layouts/app-layout';
+import { dashboard } from '@/routes';
+import { type BreadcrumbItem } from '@/types';
 
-export default function Create({ auth }) {
+const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'Dashboard',
+        href: dashboard().url,
+    },
+    {
+        title: 'Servers',
+        href: route('servers.index'),
+    },
+];
+
+export default function Create() {
     const [showKey, setShowKey] = useState(false);
 
     const { data, setData, post, processing, errors } = useForm({
@@ -15,13 +28,13 @@ export default function Create({ auth }) {
         ssh_key: '',
     });
 
-    const handleSubmit = (e) => {
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         post(route('servers.store'));
     };
 
     return (
-        <AuthenticatedLayout user={auth.user}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Add Server" />
 
             <div className="py-12">
@@ -45,7 +58,7 @@ export default function Create({ auth }) {
                             {/* Server Information */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Server Information</h3>
-                                
+
                                 <div>
                                     <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                                         Server Name *
@@ -91,7 +104,7 @@ export default function Create({ auth }) {
                                             type="number"
                                             id="ssh_port"
                                             value={data.ssh_port}
-                                            onChange={(e) => setData('ssh_port', e.target.value)}
+                                            onChange={(e) => setData('ssh_port', parseInt(e.target.value))}
                                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                             placeholder="22"
                                             min="1"
@@ -126,7 +139,7 @@ export default function Create({ auth }) {
                             {/* Authentication Method */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-900">Authentication Method</h3>
-                                
+
                                 <div className="flex space-x-4">
                                     <label className="flex items-center">
                                         <input
@@ -182,7 +195,7 @@ export default function Create({ auth }) {
                                             id="ssh_key"
                                             value={data.ssh_key}
                                             onChange={(e) => setData('ssh_key', e.target.value)}
-                                            rows="8"
+                                            rows={8}
                                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-sm"
                                             placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"
                                             required={data.connection_type === 'key'}
@@ -250,6 +263,6 @@ export default function Create({ auth }) {
                     </div>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </AppLayout>
     );
 }

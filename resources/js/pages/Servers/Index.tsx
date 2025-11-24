@@ -1,10 +1,23 @@
 import React from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import AppLayout from '@/layouts/app-layout';
+import { dashboard } from '@/routes';
+import { type BreadcrumbItem, type ServerListItem } from '@/types';
 
-export default function Index({ auth, servers }) {
-    const getStatusColor = (status) => {
-        const colors = {
+const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'Dashboard',
+        href: dashboard().url,
+    },
+];
+
+interface ServerIndexProps {
+    servers: ServerListItem[];
+}
+
+export default function Index({ servers }: ServerIndexProps) {
+    const getStatusColor = (status: string) => {
+        const colors: Record<string, string> = {
             active: 'bg-green-100 text-green-800',
             inactive: 'bg-gray-100 text-gray-800',
             error: 'bg-red-100 text-red-800',
@@ -12,36 +25,36 @@ export default function Index({ auth, servers }) {
         return colors[status] || 'bg-gray-100 text-gray-800';
     };
 
-    const handleDelete = (serverId, serverName) => {
+    const handleDelete = (serverId: number, serverName: string) => {
         if (confirm(`Are you sure you want to delete "${serverName}"? This action cannot be undone.`)) {
             router.delete(route('servers.destroy', serverId));
         }
     };
 
-    const testConnection = async (serverId) => {
+    const testConnection = async (serverId: number) => {
         try {
             const response = await fetch(route('servers.test', serverId), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
                 alert('✅ Connection successful!\n\n' + data.message);
             } else {
                 alert('❌ Connection failed!\n\n' + data.message);
             }
-        } catch (error) {
+        } catch (error: any) {
             alert('❌ Connection test failed!\n\n' + error.message);
         }
     };
 
     return (
-        <AuthenticatedLayout user={auth.user}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Servers" />
 
             <div className="py-12">
@@ -163,6 +176,6 @@ export default function Index({ auth, servers }) {
                     </div>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </AppLayout>
     );
 }
