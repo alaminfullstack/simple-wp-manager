@@ -24,7 +24,7 @@ return new class extends Migration
             $table->string('db_user');
             $table->string('db_password');
             $table->string('db_root_password');
-            $table->enum('status', ['creating', 'running', 'stopped', 'error'])->default('creating');
+            $table->enum('status', ['creating', 'running', 'stopped', 'error', 'deploying', 'failed'])->default('creating');
             $table->text('error_message')->nullable();
             $table->string('admin_email');
             $table->string('admin_user');

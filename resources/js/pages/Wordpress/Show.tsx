@@ -32,10 +32,30 @@ export default function Show({ site }: SitesShowProps) {
     const [logs, setLogs] = useState('');
     const [loadingLogs, setLoadingLogs] = useState(false);
     const [copySuccess, setCopySuccess] = useState<CopySuccessState>({});
-
+    const [autoRefresh, setAutoRefresh] = useState(site.status === 'deploying');
 
     const siteUrl = `http://${site.domain}:${site.port}`;
     const adminUrl = `${siteUrl}/wp-admin`;
+
+    // Auto-refresh when deploying
+    useEffect(() => {
+        if (site.status === 'deploying') {
+            const interval = setInterval(() => {
+                router.reload({ only: ['site'] });
+            }, 5000); // Refresh every 5 seconds
+
+            return () => clearInterval(interval);
+        }
+    }, [site.status]);
+
+    // Show notification when deployment completes
+    useEffect(() => {
+        if (autoRefresh && site.status === 'running') {
+            setAutoRefresh(false);
+            // Could show a toast notification here
+        }
+    }, [site.status, autoRefresh]);
+
 
     const handleStart = () => {
         router.post(`/wordpress/${site.id}/start`);
@@ -56,7 +76,7 @@ export default function Show({ site }: SitesShowProps) {
     const loadLogs = async () => {
         setLoadingLogs(true);
         try {
-            const response = await fetch(route('wordpress.logs', site.id));
+            const response = await fetch(`/wordpress/${site.id}/logs`);
             const data = await response.json();
             setLogs(data.logs || 'No logs available');
         } catch (error: any) {
@@ -75,16 +95,24 @@ export default function Show({ site }: SitesShowProps) {
         });
     };
 
-    const getStatusBadge = () => {
-        const statusConfig = {
-            running: { color: 'bg-green-100 text-green-800', icon: '●' },
-            stopped: { color: 'bg-gray-100 text-gray-800', icon: '○' },
-            creating: { color: 'bg-blue-100 text-blue-800', icon: '◐' },
-            error: { color: 'bg-red-100 text-red-800', icon: '✕' },
+    const getStatusColor = (status: string) => {
+        const colors = {
+            running: 'bg-green-100 text-green-800',
+            stopped: 'bg-gray-100 text-gray-800',
+            deploying: 'bg-blue-100 text-blue-800',
+            failed: 'bg-red-100 text-red-800',
         };
+        return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    };
 
-        const config = statusConfig[site.status] || statusConfig.stopped;
-
+    const getStatusIcon = (status: string) => {
+        const icons = {
+            running: '●',
+            stopped: '■',
+            deploying: '◐',
+            failed: '✕',
+        };
+        return icons[status as keyof typeof icons] || '○';
     };
 
     const InfoRow = ({ label, value, copyable = false }: InfoRowProps) => (
@@ -136,7 +164,10 @@ export default function Show({ site }: SitesShowProps) {
                                     </Link>
                                     <h2 className="text-2xl font-bold text-gray-800 flex items-center">
                                         {site.site_name}
-                                        <span className="ml-3">{getStatusBadge()}</span>
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(site.status)}`}>
+                                            <span className="mr-1">{getStatusIcon(site.status)}</span>
+                                            {site.status}
+                                        </span>
                                     </h2>
                                 </div>
                                 <div className="flex space-x-3">

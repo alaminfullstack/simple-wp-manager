@@ -106,7 +106,7 @@ export default function Create({ servers }: ServerProps) {
                                 {!servers || servers.length === 0 ? (
                                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                         <p className="text-sm text-blue-700">
-                                            No remote servers configured. <Link href={`/wordpress/create`} className="font-medium underline">Add a server</Link> to deploy remotely.
+                                            No remote servers configured. <Link href={`/servers/create`} className="font-medium underline">Add a server</Link> to deploy remotely.
                                         </p>
                                     </div>
                                 ) : null}

@@ -70,6 +70,16 @@ class DockerService
         $this->createDockerCompose($site);
         $this->startContainers($site);
         $this->waitForWordPress($site);
+        
+        // Auto-install WordPress using WP-CLI
+        $installer = new \App\Services\WordPressInstallerService();
+        $installed = $installer->autoInstallWordPress($site);
+        
+        if ($installed) {
+            \Log::info("WordPress auto-installed for site: {$site->site_name}");
+        } else {
+            \Log::warning("WordPress auto-install failed for site: {$site->site_name}. User will need to complete setup manually.");
+        }
     }
 
     private function createRemoteSite(WordPressSite $site, Server $server): void
@@ -94,6 +104,17 @@ class DockerService
         }
 
         $this->waitForRemoteWordPress($site, $ssh);
+        
+        // Auto-install WordPress using WP-CLI
+        $installer = new \App\Services\WordPressInstallerService(new SSHService($server));
+        $installed = $installer->autoInstallWordPress($site);
+        
+        if ($installed) {
+            \Log::info("Remote WordPress auto-installed for site: {$site->site_name}");
+        } else {
+            \Log::warning("Remote WordPress auto-install failed for site: {$site->site_name}. User will need to complete setup manually.");
+        }
+        
         $ssh->disconnect();
     }
 
@@ -181,6 +202,7 @@ class DockerService
 
     public function deleteSite(WordPressSite $site): void
     {
+        \Log::info("Delete Request {$site}");
         if ($site->is_remote && $site->server) {
             $this->deleteRemoteSite($site);
         } else {
@@ -192,16 +214,40 @@ class DockerService
     {
         $sitePath = $this->sitesPath . DIRECTORY_SEPARATOR . $site->container_name;
         
-        $process = new Process(['docker', 'compose', 'down', '-v'], $sitePath);
-        $process->run();
+        try {
+            // Stop and remove containers with volumes
+            if (file_exists($sitePath)) {
+                $process = new Process(['docker', 'compose', 'down', '-v'], $sitePath);
+                $process->setTimeout(120);
+                $process->run();
 
-        if (!$process->isSuccessful()) {
-            $process = new Process(['docker-compose', 'down', '-v'], $sitePath);
-            $process->run();
-        }
+                if (!$process->isSuccessful()) {
+                    // Try old syntax
+                    $process = new Process(['docker-compose', 'down', '-v'], $sitePath);
+                    $process->setTimeout(120);
+                    $process->run();
+                }
 
-        if (file_exists($sitePath)) {
-            $this->deleteDirectory($sitePath);
+                // Force remove containers if still exist
+                if($site->container_name != null){
+                    $this->forceRemoveContainer($site->container_name);
+                    $this->forceRemoveContainer($site->container_name . '_db');
+                    $this->forceRemoveContainer($site->container_name . '_cli');
+                }
+               
+
+                // Wait a bit for cleanup
+                sleep(2);
+
+                // Remove directory
+                $this->deleteDirectory($sitePath);
+                
+                \Log::info("Successfully deleted local site directory: {$sitePath} {$site}");
+
+            }
+        } catch (\Exception $e) {
+            \Log::error("Error deleting local site: " . $e->getMessage());
+            // Don't throw - we still want to delete the database record
         }
 
         $site->delete();
@@ -209,15 +255,49 @@ class DockerService
 
     private function deleteRemoteSite(WordPressSite $site): void
     {
-        $ssh = new SSHService($site->server);
-        $ssh->connect();
+        try {
+            $ssh = new SSHService($site->server);
+            $ssh->connect();
 
-        $remotePath = "/var/www/wordpress-sites/{$site->container_name}";
-        $ssh->execute("cd {$remotePath} && docker compose down -v");
-        $ssh->execute("rm -rf {$remotePath}");
+            $remotePath = "/var/www/wordpress-sites/{$site->container_name}";
+            
+            // Stop and remove containers
+            $ssh->execute("cd {$remotePath} && docker compose down -v 2>/dev/null || docker-compose down -v 2>/dev/null || true");
+            
+            // Force remove containers
+            $ssh->execute("docker rm -f {$site->container_name} 2>/dev/null || true");
+            $ssh->execute("docker rm -f {$site->container_name}_db 2>/dev/null || true");
+            $ssh->execute("docker rm -f {$site->container_name}_cli 2>/dev/null || true");
+            
+            // Wait for cleanup
+            sleep(2);
+            
+            // Remove directory
+            $ssh->execute("rm -rf {$remotePath}");
+            
+            $ssh->disconnect();
+            
+            \Log::info("Successfully deleted remote site: {$remotePath}");
+        } catch (\Exception $e) {
+            \Log::error("Error deleting remote site: " . $e->getMessage());
+            // Don't throw - we still want to delete the database record
+        }
         
-        $ssh->disconnect();
         $site->delete();
+    }
+
+    private function forceRemoveContainer(string $containerName): void
+    {
+        try {
+            $process = new Process(['docker', 'rm', '-f', $containerName]);
+            $process->run();
+            
+            if ($process->isSuccessful()) {
+                \Log::info("Force removed container: {$containerName}");
+            }
+        } catch (\Exception $e) {
+            // Ignore errors - container might not exist
+        }
     }
 
     public function getSiteLogs(WordPressSite $site, int $lines = 100): string
@@ -364,10 +444,15 @@ services:
       MYSQL_PASSWORD: {$site->db_password}
     networks:
       - {$site->container_name}_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
 
   wordpress:
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     image: wordpress:latest
     container_name: {$site->container_name}
     ports:
@@ -382,6 +467,31 @@ services:
       - wordpress_data:/var/www/html
     networks:
       - {$site->container_name}_network
+
+  wpcli:
+    depends_on:
+      wordpress:
+        condition: service_started
+    image: wordpress:cli
+    container_name: {$site->container_name}_cli
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - {$site->container_name}_network
+    entrypoint: /bin/sh
+    command: >
+      -c "
+      sleep 30;
+      wp core install
+        --url=http://{$site->domain}:{$site->port}
+        --title='{$site->site_name}'
+        --admin_user='{$site->admin_user}'
+        --admin_password='{$site->admin_password}'
+        --admin_email='{$site->admin_email}'
+        --skip-email
+        --allow-root || echo 'WordPress already installed';
+      exit 0
+      "
 
 volumes:
   db_data:
@@ -430,16 +540,20 @@ YAML;
                 
                 if ($headers && (strpos($headers[0], '200') !== false || strpos($headers[0], '302') !== false)) {
                     sleep(3);
+                    \Log::info("WordPress site {$site->site_name} is ready at {$url}");
                     return;
                 }
             } catch (\Exception $e) {
+                \Log::warning("Attempt {$attempts}: Waiting for WordPress at {$url} - " . $e->getMessage());
             }
             
             sleep(2);
             $attempts++;
         }
 
-        throw new \Exception('WordPress site failed to start within timeout period');
+        $error = "WordPress site failed to start within timeout period ({$maxAttempts} attempts)";
+        \Log::error($error . " for site: {$site->site_name}");
+        throw new \Exception($error);
     }
 
     private function waitForRemoteWordPress(WordPressSite $site, SSHService $ssh, int $maxAttempts = 30): void
@@ -451,14 +565,18 @@ YAML;
             
             if ($result['success'] && trim($result['output']) === 'true') {
                 sleep(3);
+                \Log::info("Remote WordPress site {$site->site_name} is running");
                 return;
             }
             
+            \Log::warning("Attempt {$attempts}: Waiting for remote WordPress container {$site->container_name}");
             sleep(2);
             $attempts++;
         }
 
-        throw new \Exception('WordPress site failed to start within timeout period');
+        $error = "WordPress site failed to start within timeout period ({$maxAttempts} attempts)";
+        \Log::error($error . " for remote site: {$site->site_name}");
+        throw new \Exception($error);
     }
 
     public function checkDockerAvailability(): array
@@ -486,7 +604,7 @@ YAML;
         ];
     }
 
-    private function findAvailablePort(int $startPort = 8080, ?Server $server = null): int
+    public function findAvailablePort(int $startPort = 8080, ?Server $server = null): int
     {
         $port = $startPort;
         $maxPort = 9000;

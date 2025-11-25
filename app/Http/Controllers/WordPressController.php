@@ -75,19 +75,20 @@ class WordPressController extends Controller
             }
             
             // Check if using queue or direct deployment
-            $useQueue = config('wordpress.use_queue', false);
+            $useQueue = config('wordpress.use_queue', true); // Default to TRUE now
             
             if ($useQueue) {
-                // Create site record first
+                // Create site record with 'deploying' status
                 $site = $this->createSiteRecord($validated);
                 
-                // Dispatch to queue
-                DeployWordPressSite::dispatch($site->id, $validated);
+                // Dispatch to queue - returns immediately
+                DeployWordPressSite::dispatch($site->id, $validated)
+                    ->onQueue('deployments');
                 
                 return redirect()->route('wordpress.show', $site)
-                    ->with('success', 'WordPress site is being deployed. This may take a few minutes.');
+                    ->with('success', 'WordPress site deployment started! Refresh the page in 1-2 minutes to see the status.');
             } else {
-                // Direct deployment (current behavior)
+                // Direct deployment (may timeout)
                 $site = $this->dockerService->createWordPressSite($validated);
                 
                 return redirect()->route('wordpress.show', $site)
@@ -100,7 +101,7 @@ class WordPressController extends Controller
         }
     }
 
-    private function createSiteRecord(array $data): WordPressSite
+    public function createSiteRecord(array $data): WordPressSite
     {
         $server = isset($data['server_id']) ? \App\Models\Server::find($data['server_id']) : null;
         $isRemote = $server && !$server->isLocal();
@@ -139,8 +140,9 @@ class WordPressController extends Controller
         return $password;
     }
 
-    public function show(WordPressSite $site)
+    public function show($id)
     {
+        $site = WordPressSite::findOrFail($id);
         $dockerStatus = $this->dockerService->checkDockerAvailability();
         $site->load('server');
         
@@ -150,14 +152,15 @@ class WordPressController extends Controller
         ]);
     }
 
-    public function edit(WordPressSite $site)
+    public function edit($id)
     {
+        $site = WordPressSite::findOrFail($id);
         $dockerStatus = $this->dockerService->checkDockerAvailability();
         $site->load('server');
 
         // Get all active servers
-        $servers = \App\Models\Server::where('status', 'active')->get();
-        
+        $servers = Server::where('status', 'active')->get();
+
         return Inertia::render('WordPress/Edit', [
             'site' => $site,
             'dockerStatus' => $dockerStatus,
@@ -165,8 +168,10 @@ class WordPressController extends Controller
         ]);
     }
 
-    public function update(Request $request, WordPressSite $site)
+    public function update(Request $request, $id)
     {
+        $site = WordPressSite::findOrFail($id);
+        
         $validated = $request->validate([
             'site_name' => 'required|string|max:255',
             'domain' => 'nullable|string|max:255',
@@ -219,8 +224,10 @@ class WordPressController extends Controller
         }
     }
 
-    public function destroy(WordPressSite $site)
+    public function destroy($id)
     {
+        $site = WordPressSite::findOrFail($id);
+        \Log::info("Delete hit {$site}");
         try {
             $this->dockerService->deleteSite($site);
             return redirect()->route('wordpress.index')
