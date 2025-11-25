@@ -403,16 +403,16 @@ Project Link: [https://github.com/alaminfullstack/simple-wp-site-manager](https:
 ## 📸 Screenshots
 
 ### Dashboard
-![Dashboard Screenshot](screenshots/dashboard.png)
+![Dashboard Screenshot](screenshots/Screenshot_4.png)
 
 ### Server Management
-![Server Management](screenshots/servers.png)
+![Server Management](screenshots/Screenshot_5.png)
 
 ### WordPress Site Creation
-![Site Creation](screenshots/create-site.png)
+![Site Creation](screenshots/Screenshot_6.png)
 
 ### Site Details
-![Site Details](screenshots/site-details.png)
+![Site Details](screenshots/Screenshot_7.png)
 
 ---
 
