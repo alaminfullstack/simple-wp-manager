@@ -237,6 +237,10 @@ If you encounter any issues not covered in this guide, please:
 
 ## 📖 Usage Guide
 
+### Demo Video
+
+<video src="/public/screenshots/demo.mp4" width="600" controls  autoplay muted loop></video>
+
 ### Managing Servers
 
 #### Add a Remote Server
@@ -326,10 +330,6 @@ API_TOKEN="your-secure-token"
 LOG_FILE="/var/log/docker-monitor.log"
 ```
 
-# Verify cron job exists
-crontab -l
-```
-
 ## 📝 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
@@ -352,17 +352,23 @@ Project Link: [https://github.com/alaminfullstack/simple-wp-site-manager](https:
 ## 📸 Screenshots
 
 ### Welcome
-![Welcome Screenshot](public/screenshots/Screenshot_4.png)
+![Welcome Screenshot](public/screenshots/Screenshot_1.png)
+
+### Login & Register
+![Welcome Screenshot](public/screenshots/Screenshot_2.png)
+![Welcome Screenshot](public/screenshots/Screenshot_3.png)
 
 ### Dashboard
 ![Dashboard Screenshot](public/screenshots/Screenshot_4.png)
 
 ### Server Management
-![Server Management](public/screenshots/Screenshot_5.png)
+![Server Management](public/screenshots/Screenshot_7.png)
+![Server Create](public/screenshots/Screenshot_8.png)
 
 ### WordPress Site Creation
+![Site List](public/screenshots/Screenshot_5.png)
 ![Site Creation](public/screenshots/Screenshot_6.png)
 
 ### Site Details
-![Site Details](public/screenshots/Screenshot_7.png)
+![Site Details](public/screenshots/Screenshot_11.png)
 
