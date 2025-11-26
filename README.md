@@ -31,83 +31,296 @@ A Laravel-based web application for managing WordPress sites on local and remote
 - View container logs in real-time
 - One-click access to WordPress admin
 
-## 📋 Requirements
+## Prerequisites
 
-### Local Development (Windows)
-- Windows 10/11 with WSL2
-- Docker Desktop for Windows
+Before you begin, ensure you have the following installed:
 
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for Windows/Mac) or Docker Engine (for Linux)
+- [Git](https://git-scm.com/downloads)
+- A code editor of your choice (VS Code recommended)
 
-### Remote VPS Server
-- Ubuntu 20.04+ (or any Linux distribution)
-- Docker and Docker Compose installed
-- SSH access with sudo privileges
-- Ports 8080-9000 available
-- Minimum 2GB RAM recommended
+## Initial Setup
 
-## 🚀 Quick Start
-
-### 1. Clone Repository
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/alaminfullstack/simple-wp-site-manager.git
 cd simple-wp-site-manager
 ```
 
-### 2. Install Dependencies
+### 2. Configure Environment Variables
+
+Copy the example environment file to create your own configuration:
 
 ```bash
-# PHP dependencies
-composer install
+cp .env.example .env
+```
 
-# JavaScript dependencies
-npm install
+You can now edit the `.env` file with your preferred settings. The default configuration is already set up for Docker:
 
-
-### 3. Environment Setup
-
-```bash
-# Copy environment file
-copy .env.example .env
-
-# Generate application key
-php artisan key:generate
-
-# Configure database in .env
+```env
 DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
+DB_HOST=mysql
 DB_PORT=3306
-DB_DATABASE=wordpress_manager
-DB_USERNAME=root
-DB_PASSWORD=
+DB_DATABASE=laravel
+DB_USERNAME=laravel
+DB_PASSWORD=password
+
+REDIS_HOST=redis
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+
+QUEUE_CONNECTION=redis
 ```
 
-### 4. Database Migration
+### 3. Build and Start the Application
+
+Run the following command to build and start all Docker services in the background:
 
 ```bash
-php artisan migrate
+docker-compose up -d --build
 ```
 
-### 5. Build Frontend Assets
+This command will build and start the following services:
+- `app`: PHP-FPM server running Laravel
+- `nginx`: Web server
+- `mysql`: Database server
+- `redis`: Cache and queue server
+- `queue`: Laravel queue worker
+- `node`: Node.js for frontend assets
+
+### 4. Install Dependencies
+
+Install the PHP and Node.js dependencies inside their respective containers.
 
 ```bash
-# Development
-npm run dev
+# Install PHP dependencies
+docker-compose exec app composer install
 
-# Production
-npm run build
+# Install Node.js dependencies
+docker-compose exec node npm install
+
+# Build frontend assets for production
+docker-compose exec node npm run build
 ```
 
-### 6. Start Application
+### 5. Finalize Laravel Setup
+
+Run these essential Artisan commands to prepare the application.
 
 ```bash
-# Using Laragon
-# Just start Laragon and access via http://your-project.test
+# Generate a unique application key
+docker-compose exec app php artisan key:generate
 
-# Or using Artisan
-php artisan serve
-# Access via http://localhost:8000
+# Run database migrations
+docker-compose exec app php artisan migrate
+
+# Create the symbolic link for public storage
+docker-compose exec app php artisan storage:link
 ```
+
+## Accessing the Application
+
+Once all steps are complete, you can access the application in your browser at:
+
+**Frontend:** `http://localhost:8080`
+
+## Common Development Commands
+
+### Laravel Artisan Commands
+
+```bash
+# Run any artisan command
+docker-compose exec app php artisan <command>
+
+# Example: Clear all caches
+docker-compose exec app php artisan optimize:clear
+```
+
+### Frontend Development
+
+```bash
+# Install a new npm package
+docker-compose exec node npm install <package>
+
+# Re-build assets for production
+docker-compose exec node npm run build
+```
+
+### Queue Management
+
+The queue worker starts automatically with `docker-compose up`. You can manage it with these commands:
+
+```bash
+# View queue worker logs in real-time
+docker-compose logs -f queue
+
+# Restart the queue worker
+docker-compose restart queue
+
+# Run a one-time queue command (useful for testing)
+docker-compose exec app php artisan queue:work --once
+
+# View and retry failed jobs
+docker-compose exec app php artisan queue:failed
+docker-compose exec app php artisan queue:retry all
+```
+
+### Database Operations
+
+```bash
+# Run migrations
+docker-compose exec app php artisan migrate
+
+# Seed the database
+docker-compose exec app php artisan db:seed
+
+# Access MySQL command line (password is 'password')
+docker-compose exec mysql mysql -u laravel -p
+```
+
+### Viewing Logs
+
+```bash
+# View logs from all services
+docker-compose logs -f
+
+# View logs for a specific service
+docker-compose logs -f app
+docker-compose logs -f nginx
+docker-compose logs -f mysql
+docker-compose logs -f queue
+```
+
+## Stopping the Application
+
+```bash
+# Stop all services (keeps containers and data)
+docker-compose stop
+
+# Stop and remove containers (keeps data in volumes)
+docker-compose down
+
+# Stop and remove everything including database volumes (WARNING: deletes data)
+docker-compose down -v
+```
+
+## Troubleshooting
+
+### Permission Issues
+
+If you encounter permission errors with `storage` or `bootstrap/cache`:
+
+```bash
+# Fix permissions from within the app container
+docker-compose exec app chown -R www-data:www-data storage bootstrap/cache
+docker-compose exec app chmod -R 775 storage bootstrap/cache
+```
+
+### Port Conflicts
+
+If port `8080` is already in use on your machine, you can change it in the `docker-compose.yml` file:
+
+```yaml
+# find the nginx service and change the port mapping
+nginx:
+  ports:
+    - "8081:80"  # Change to your preferred port
+```
+
+After changing the port, run `docker-compose up -d --build nginx` to apply the change.
+
+### Container Not Starting
+
+If a container fails to start:
+
+1.  Check the logs for errors:
+    ```bash
+    docker-compose logs <service_name>
+    ```
+2.  Try rebuilding the specific container:
+    ```bash
+    docker-compose up -d --build <service_name>
+    ```
+3.  If all else fails, remove all containers and start fresh (this will not delete your database data):
+    ```bash
+    docker-compose down
+    docker-compose up -d --build
+    ```
+
+## 🐛 Troubleshooting
+
+### Docker Not Running
+**Problem**: "Docker is not running" error
+
+**Solution**:
+```bash
+# On Windows
+# Ensure Docker Desktop is running
+
+# Check Docker status
+docker ps
+
+# Restart Docker Desktop if needed
+```
+
+### SSH Connection Failed
+**Problem**: Cannot connect to remote server
+
+**Solution**:
+1. Verify server IP and SSH port
+2. Check firewall allows SSH connection
+3. Test manually: `ssh user@ip -p port`
+4. Ensure user has sudo privileges
+5. Check server status in dashboard
+
+### Port Already in Use
+**Problem**: Port conflict when creating site
+
+**Solution**:
+- System auto-increments ports (8080 → 8081 → 8082...)
+- Manually specify different port when creating site
+- Check what's using port: `netstat -ano | findstr :8080`
+
+### Monitor Script Not Updating
+**Problem**: Status not updating automatically
+
+**Solution**:
+```bash
+# On remote server
+# Check if cron is running
+sudo service cron status
+
+# Check monitor logs
+tail -f /var/log/docker-monitor.log
+
+# Manually run script
+/usr/local/bin/docker-monitor.sh
+
+
+## Development Workflow
+
+1.  Make your code changes.
+2.  For backend changes, refresh your browser.
+3.  For frontend changes, run `docker-compose exec node npm run dev` in a separate terminal to enable hot reloading.
+4.  Commit your changes to Git.
+5.  When you're done for the day, run `docker-compose stop` to pause the environment.
+
+## Production Deployment
+
+This Docker setup is configured for development. For a production deployment, you will need to:
+- Use production-optimized images (e.g., `nginx:alpine`, `php:8.2-fpm-alpine`).
+- Configure proper environment variables for production.
+- Set up persistent volumes for data and ensure they are backed up.
+- Configure SSL certificates and a proper reverse proxy.
+
+## Need Help?
+
+If you encounter any issues not covered in this guide, please:
+1.  Check the [Laravel documentation](https://laravel.com/docs).
+2.  Check the [Docker documentation](https://docs.docker.com/).
+3.  Create an issue in the [GitHub repository](https://github.com/alaminfullstack/simple-wp-site-manager/issues).
+
 
 ## 📖 Usage Guide
 
@@ -137,8 +350,7 @@ php artisan serve
 3. Fill in site details:
    - Site Name
    - Port (default: 8080)
-   - Admin Email
-   - Admin Username and Password
+   - advanced database info (optional)
 4. Click **Create WordPress Site**
 5. Wait 1-2 minutes for deployment
 6. Access your site at `http://localhost:8080`
@@ -168,38 +380,6 @@ php artisan serve
 - **Remote Access**: SSH via phpseclib3
 - **Database**: MySQL 8.0 (for both app and WordPress sites)
 
-### Project Structure
-
-```
-simple-wp-site-manager/
-├── app/
-│   ├── Http/
-│   │   └── Controllers/
-│   │       ├── Api/
-│   │       │   └── StatusApiController.php
-│   │       ├── ServerController.php
-│   │       └── WordPressController.php
-│   ├── Models/
-│   │   ├── Server.php
-│   │   └── WordPressSite.php
-│   └── Services/
-│       ├── SSHService.php
-│       └── DockerService.php
-├── database/
-│   └── migrations/
-├── resources/
-│   └── js/
-│       └── Pages/
-│           ├── Servers/
-│           └── WordPress/
-├── routes/
-│   ├── web.php
-│   └── api.php
-├── scripts/
-│   └── docker-monitor.sh
-└── storage/
-    └── wordpress-sites/
-```
 
 ## 🔒 Security
 
@@ -251,135 +431,9 @@ API_TOKEN="your-secure-token"
 LOG_FILE="/var/log/docker-monitor.log"
 ```
 
-## 🐛 Troubleshooting
-
-### Docker Not Running
-**Problem**: "Docker is not running" error
-
-**Solution**:
-```bash
-# On Windows
-# Ensure Docker Desktop is running
-
-# Check Docker status
-docker ps
-
-# Restart Docker Desktop if needed
-```
-
-### SSH Connection Failed
-**Problem**: Cannot connect to remote server
-
-**Solution**:
-1. Verify server IP and SSH port
-2. Check firewall allows SSH connection
-3. Test manually: `ssh user@ip -p port`
-4. Ensure user has sudo privileges
-5. Check server status in dashboard
-
-### Port Already in Use
-**Problem**: Port conflict when creating site
-
-**Solution**:
-- System auto-increments ports (8080 → 8081 → 8082...)
-- Manually specify different port when creating site
-- Check what's using port: `netstat -ano | findstr :8080`
-
-### Monitor Script Not Updating
-**Problem**: Status not updating automatically
-
-**Solution**:
-```bash
-# On remote server
-# Check if cron is running
-sudo service cron status
-
-# Check monitor logs
-tail -f /var/log/docker-monitor.log
-
-# Manually run script
-/usr/local/bin/docker-monitor.sh
-
 # Verify cron job exists
 crontab -l
 ```
-
-## 📦 Deployment to Production
-
-### 1. Server Preparation
-
-```bash
-# Update system
-sudo apt update && sudo apt upgrade -y
-
-# Install Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# Install Docker Compose
-sudo apt install docker-compose -y
-
-# Add user to docker group
-sudo usermod -aG docker $USER
-```
-
-### 2. Laravel Application Setup
-
-```bash
-# Optimize application
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-composer dump-autoload --optimize
-
-# Build assets
-npm run build
-
-# Set permissions
-chmod -R 775 storage bootstrap/cache
-chown -R www-data:www-data storage bootstrap/cache
-```
-
-### 3. Web Server Configuration
-
-Use Nginx or Apache to serve the Laravel application. Example Nginx config:
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-    root /path/to/simple-wp-site-manager/public;
-
-    add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-Content-Type-Options "nosniff";
-
-    index index.php;
-
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
-
-    location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
-        include fastcgi_params;
-    }
-
-    location ~ /\.(?!well-known).* {
-        deny all;
-    }
-}
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
 
 ## 📝 License
 
@@ -387,7 +441,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 👨‍💻 Author
 
-Your Name - [@alaminfullstack]
+[@alaminfullstack]
 
 Project Link: [https://github.com/alaminfullstack/simple-wp-site-manager](https://github.com/alaminfullstack/simple-wp-site-manager)
 
@@ -402,6 +456,9 @@ Project Link: [https://github.com/alaminfullstack/simple-wp-site-manager](https:
 
 ## 📸 Screenshots
 
+### Welcome
+![Welcome Screenshot](public/screenshots/Screenshot_4.png)
+
 ### Dashboard
 ![Dashboard Screenshot](public/screenshots/Screenshot_4.png)
 
@@ -414,6 +471,3 @@ Project Link: [https://github.com/alaminfullstack/simple-wp-site-manager](https:
 ### Site Details
 ![Site Details](public/screenshots/Screenshot_7.png)
 
----
-
-**Note**: This is a project created for educational and portfolio purposes. Always follow security best practices when deploying to production environments.
