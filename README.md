@@ -238,7 +238,7 @@ If you encounter any issues not covered in this guide, please:
 ## 📖 Usage Guide
 
 ### Demo Video
-[![Demo Video](https://img.youtube.com/vi/0/0.jpg)](https://drive.google.com/file/d/124AJE4Fo0Lto9m1qcoGp70xMEbl1eq1w/view)
+[![Watch Demo](public/screenshots/thumbnail.png)](https://drive.google.com/file/d/124AJE4Fo0Lto9m1qcoGp70xMEbl1eq1w/view)
 
 
 ### Managing Servers
