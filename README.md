@@ -238,8 +238,8 @@ If you encounter any issues not covered in this guide, please:
 ## 📖 Usage Guide
 
 ### Demo Video
+[![Demo Video](public/screenshots/thumbnail.png)](https://github.com/alaminfullstack/simple-wp-manager/blob/gem/public/screenshots/demo.mp4)
 
-<video src="https://github.com/alaminfullstack/simple-wp-manager/blob/gem/public/screenshots/demo.mp4" width="600" controls  autoplay muted loop></video>
 
 ### Managing Servers
 
