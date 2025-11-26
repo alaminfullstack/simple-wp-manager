@@ -127,25 +127,6 @@ Once all steps are complete, you can access the application in your browser at:
 
 ## Common Development Commands
 
-### Laravel Artisan Commands
-
-```bash
-# Run any artisan command
-docker-compose exec app php artisan <command>
-
-# Example: Clear all caches
-docker-compose exec app php artisan optimize:clear
-```
-
-### Frontend Development
-
-```bash
-# Install a new npm package
-docker-compose exec node npm install <package>
-
-# Re-build assets for production
-docker-compose exec node npm run build
-```
 
 ### Queue Management
 
@@ -177,32 +158,6 @@ docker-compose exec app php artisan db:seed
 
 # Access MySQL command line (password is 'password')
 docker-compose exec mysql mysql -u laravel -p
-```
-
-### Viewing Logs
-
-```bash
-# View logs from all services
-docker-compose logs -f
-
-# View logs for a specific service
-docker-compose logs -f app
-docker-compose logs -f nginx
-docker-compose logs -f mysql
-docker-compose logs -f queue
-```
-
-## Stopping the Application
-
-```bash
-# Stop all services (keeps containers and data)
-docker-compose stop
-
-# Stop and remove containers (keeps data in volumes)
-docker-compose down
-
-# Stop and remove everything including database volumes (WARNING: deletes data)
-docker-compose down -v
 ```
 
 ## Troubleshooting
@@ -248,8 +203,6 @@ If a container fails to start:
     docker-compose up -d --build
     ```
 
-## 🐛 Troubleshooting
-
 ### Docker Not Running
 **Problem**: "Docker is not running" error
 
@@ -273,46 +226,6 @@ docker ps
 3. Test manually: `ssh user@ip -p port`
 4. Ensure user has sudo privileges
 5. Check server status in dashboard
-
-### Port Already in Use
-**Problem**: Port conflict when creating site
-
-**Solution**:
-- System auto-increments ports (8080 → 8081 → 8082...)
-- Manually specify different port when creating site
-- Check what's using port: `netstat -ano | findstr :8080`
-
-### Monitor Script Not Updating
-**Problem**: Status not updating automatically
-
-**Solution**:
-```bash
-# On remote server
-# Check if cron is running
-sudo service cron status
-
-# Check monitor logs
-tail -f /var/log/docker-monitor.log
-
-# Manually run script
-/usr/local/bin/docker-monitor.sh
-
-
-## Development Workflow
-
-1.  Make your code changes.
-2.  For backend changes, refresh your browser.
-3.  For frontend changes, run `docker-compose exec node npm run dev` in a separate terminal to enable hot reloading.
-4.  Commit your changes to Git.
-5.  When you're done for the day, run `docker-compose stop` to pause the environment.
-
-## Production Deployment
-
-This Docker setup is configured for development. For a production deployment, you will need to:
-- Use production-optimized images (e.g., `nginx:alpine`, `php:8.2-fpm-alpine`).
-- Configure proper environment variables for production.
-- Set up persistent volumes for data and ensure they are backed up.
-- Configure SSL certificates and a proper reverse proxy.
 
 ## Need Help?
 
@@ -402,24 +315,6 @@ All sensitive data is encrypted using Laravel's encryption:
 - Authentication required for all operations
 - Input validation and sanitization
 
-## 🔧 Configuration
-
-### Environment Variables
-
-```env
-# Application
-APP_NAME="WordPress Site Manager"
-APP_URL=https://your-domain.com
-
-# Docker Configuration
-DOCKER_SITES_PATH=/var/www/wordpress-sites
-WORDPRESS_BASE_PORT=8080
-WORDPRESS_MAX_PORT=9000
-
-# SSH Configuration
-DEFAULT_SSH_PORT=22
-SSH_CONNECTION_TIMEOUT=30
-```
 
 ### Monitor Script Configuration
 
