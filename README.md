@@ -237,7 +237,7 @@ If you encounter any issues not covered in this guide, please:
 
 ## 📖 Usage Guide
 
-### Demo Video
+### Demo Video (click the thumbnail to view full demo video)
 [![Watch Demo](public/screenshots/thumbnail.png)](https://drive.google.com/file/d/124AJE4Fo0Lto9m1qcoGp70xMEbl1eq1w/view)
 
 
