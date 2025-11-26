@@ -238,7 +238,7 @@ If you encounter any issues not covered in this guide, please:
 ## 📖 Usage Guide
 
 ### Demo Video
-[![Demo Video](public/screenshots/thumbnail.png)](https://github.com/alaminfullstack/simple-wp-manager/blob/gem/public/screenshots/demo.mp4)
+![Demo](public/screenshots/demo.gif)
 
 
 ### Managing Servers
