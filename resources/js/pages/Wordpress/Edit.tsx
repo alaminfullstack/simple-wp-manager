@@ -167,7 +167,7 @@ export default function Edit({ site, servers }: SitesEditProps) {
                             </div>
 
                             {/* Admin Information */}
-                            <div className="space-y-4">
+                            <div className="space-y-4 hidden">
                                 <h3 className="text-lg font-semibold text-gray-900">Admin Account</h3>
 
                                 <div>

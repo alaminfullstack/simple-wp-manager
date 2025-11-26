@@ -50,7 +50,7 @@ A Laravel-based web application for managing WordPress sites on local and remote
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/simple-wp-site-manager.git
+git clone https://github.com/alaminfullstack/simple-wp-site-manager.git
 cd simple-wp-site-manager
 ```
 
@@ -403,16 +403,16 @@ Project Link: [https://github.com/alaminfullstack/simple-wp-site-manager](https:
 ## 📸 Screenshots
 
 ### Dashboard
-![Dashboard Screenshot](screenshots/Screenshot_4.png)
+![Dashboard Screenshot](public/screenshots/Screenshot_4.png)
 
 ### Server Management
-![Server Management](screenshots/Screenshot_5.png)
+![Server Management](public/screenshots/Screenshot_5.png)
 
 ### WordPress Site Creation
-![Site Creation](screenshots/Screenshot_6.png)
+![Site Creation](public/screenshots/Screenshot_6.png)
 
 ### Site Details
-![Site Details](screenshots/Screenshot_7.png)
+![Site Details](public/screenshots/Screenshot_7.png)
 
 ---
 

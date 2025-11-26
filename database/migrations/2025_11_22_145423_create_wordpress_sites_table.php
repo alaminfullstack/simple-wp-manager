@@ -24,11 +24,11 @@ return new class extends Migration
             $table->string('db_user');
             $table->string('db_password');
             $table->string('db_root_password');
-            $table->enum('status', ['creating', 'running', 'stopped', 'error', 'deploying', 'failed'])->default('creating');
+            $table->enum('status', ['creating', 'deploying', 'running', 'stopped', 'deleting', 'error', 'failed'])->default('creating');
             $table->text('error_message')->nullable();
-            $table->string('admin_email');
-            $table->string('admin_user');
-            $table->string('admin_password');
+            $table->string('admin_email')->nullable();
+            $table->string('admin_user')->nullable();
+            $table->string('admin_password')->nullable();
             $table->timestamps();
          ;
         });

@@ -220,6 +220,44 @@ export default function Show({ site }: SitesShowProps) {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Deployment Status */}
+                        {site.status === 'deploying' && (
+                            <div className="lg:col-span-2 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div className="flex">
+                                    <svg className="animate-spin h-5 w-5 text-blue-600 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <div className="ml-3 flex-1">
+                                        <h3 className="text-sm font-medium text-blue-800">Deployment in Progress</h3>
+                                        <div className="mt-2 text-sm text-blue-700">
+                                            <p>Your WordPress site is being deployed. This usually takes 1-2 minutes.</p>
+                                            <p className="mt-1">This page will automatically refresh. Please wait...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Deletion Status */}
+                        {site.status === 'deleting' && (
+                            <div className="lg:col-span-2 bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                <div className="flex">
+                                    <svg className="animate-spin h-5 w-5 text-orange-600 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <div className="ml-3 flex-1">
+                                        <h3 className="text-sm font-medium text-orange-800">Deletion in Progress</h3>
+                                        <div className="mt-2 text-sm text-orange-700">
+                                            <p>Removing containers and cleaning up resources...</p>
+                                            <p className="mt-1">You will be redirected shortly.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Quick Access */}
                         {site.status === 'running' && (
                             <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
@@ -283,7 +321,7 @@ export default function Show({ site }: SitesShowProps) {
                         </div>
 
                         {/* Admin Credentials */}
-                        <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                        <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg hidden">
                             <div className="p-6">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Admin Credentials</h3>
                                 <dl className="divide-y divide-gray-200">

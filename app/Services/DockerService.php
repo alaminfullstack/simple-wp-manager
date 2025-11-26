@@ -40,7 +40,7 @@ class DockerService
             'db_user' => $data['db_user'] ?? 'wpuser',
             'db_password' => $data['db_password'] ?? $this->generatePassword(),
             'db_root_password' => $this->generatePassword(),
-            'admin_email' => $data['admin_email'],
+            'admin_email' => $data['admin_email'] ?? 'admin@gmail.com',
             'admin_user' => $data['admin_user'] ?? 'admin',
             'admin_password' => $data['admin_password'] ?? $this->generatePassword(),
             'status' => 'deploying',
@@ -232,7 +232,7 @@ class DockerService
                 if($site->container_name != null){
                     $this->forceRemoveContainer($site->container_name);
                     $this->forceRemoveContainer($site->container_name . '_db');
-                    $this->forceRemoveContainer($site->container_name . '_cli');
+                    // $this->forceRemoveContainer($site->container_name . '_cli');
                 }
                
 
@@ -267,7 +267,7 @@ class DockerService
             // Force remove containers
             $ssh->execute("docker rm -f {$site->container_name} 2>/dev/null || true");
             $ssh->execute("docker rm -f {$site->container_name}_db 2>/dev/null || true");
-            $ssh->execute("docker rm -f {$site->container_name}_cli 2>/dev/null || true");
+            // $ssh->execute("docker rm -f {$site->container_name}_cli 2>/dev/null || true");
             
             // Wait for cleanup
             sleep(2);
@@ -467,31 +467,6 @@ services:
       - wordpress_data:/var/www/html
     networks:
       - {$site->container_name}_network
-
-  wpcli:
-    depends_on:
-      wordpress:
-        condition: service_started
-    image: wordpress:cli
-    container_name: {$site->container_name}_cli
-    volumes:
-      - wordpress_data:/var/www/html
-    networks:
-      - {$site->container_name}_network
-    entrypoint: /bin/sh
-    command: >
-      -c "
-      sleep 30;
-      wp core install
-        --url=http://{$site->domain}:{$site->port}
-        --title='{$site->site_name}'
-        --admin_user='{$site->admin_user}'
-        --admin_password='{$site->admin_password}'
-        --admin_email='{$site->admin_email}'
-        --skip-email
-        --allow-root || echo 'WordPress already installed';
-      exit 0
-      "
 
 volumes:
   db_data:

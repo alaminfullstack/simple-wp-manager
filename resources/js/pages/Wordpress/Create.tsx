@@ -28,9 +28,9 @@ export default function Create({ servers }: ServerProps) {
         site_name: '',
         domain: 'localhost',
         port: 8080,
-        admin_email: '',
-        admin_user: 'admin',
-        admin_password: '',
+        // admin_email: '',
+        // admin_user: 'admin',
+        // admin_password: '',
         db_name: 'wordpress',
         db_user: 'wpuser',
         db_password: '',
@@ -44,7 +44,7 @@ export default function Create({ servers }: ServerProps) {
             password += charset.charAt(Math.floor(Math.random() * charset.length));
         }
         setGeneratedPassword(password);
-        setData('admin_password', password);
+        // setData('admin_password', password);
     };
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -173,74 +173,6 @@ export default function Create({ servers }: ServerProps) {
                                 </div>
                             </div>
 
-                            {/* Admin Information */}
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-semibold text-gray-900">Admin Account</h3>
-
-                                <div>
-                                    <label htmlFor="admin_email" className="block text-gray-700 text-sm font-bold mb-2">
-                                        Admin Email *
-                                    </label>
-                                    <input
-                                        type="email"
-                                        id="admin_email"
-                                        value={data.admin_email}
-                                        onChange={(e) => setData('admin_email', e.target.value)}
-                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
-                                        placeholder="admin@example.com"
-                                        required
-                                    />
-                                    {errors.admin_email && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.admin_email}</p>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label htmlFor="admin_user" className="block text-gray-700 text-sm font-bold mb-2">
-                                        Admin Username *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="admin_user"
-                                        value={data.admin_user}
-                                        onChange={(e) => setData('admin_user', e.target.value)}
-                                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
-                                        placeholder="admin"
-                                        required
-                                    />
-                                    {errors.admin_user && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.admin_user}</p>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label htmlFor="admin_password" className="block text-gray-700 text-sm font-bold mb-2">
-                                        Admin Password *
-                                    </label>
-                                    <div className="mt-1 flex rounded-md shadow-sm">
-                                        <input
-                                            type="text"
-                                            id="admin_password"
-                                            value={data.admin_password}
-                                            onChange={(e) => setData('admin_password', e.target.value)}
-                                            className="shadow appearance-none border rounded-l w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                                            placeholder="Enter strong password"
-                                            required
-                                            minLength={8}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={generatePassword}
-                                            className="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-700 text-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        >
-                                            Generate
-                                        </button>
-                                    </div>
-                                    {errors.admin_password && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.admin_password}</p>
-                                    )}
-                                </div>
-                            </div>
 
                             {/* Advanced Settings */}
                             <div className="space-y-4">

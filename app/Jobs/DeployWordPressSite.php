@@ -187,30 +187,6 @@ services:
     networks:
       - {$site->container_name}_network
 
-  wpcli:
-    depends_on:
-      wordpress:
-        condition: service_started
-    image: wordpress:cli
-    container_name: {$site->container_name}_cli
-    volumes:
-      - wordpress_data:/var/www/html
-    networks:
-      - {$site->container_name}_network
-    entrypoint: /bin/sh
-    command: >
-      -c "
-      sleep 30;
-      wp core install
-        --url={$url}
-        --title='{$site->site_name}'
-        --admin_user='{$site->admin_user}'
-        --admin_password='{$site->admin_password}'
-        --admin_email='{$site->admin_email}'
-        --skip-email
-        --allow-root || echo 'WordPress already installed';
-      exit 0
-      "
 
 volumes:
   db_data:

@@ -76,6 +76,7 @@ export interface ServerListItem extends Server {
 
 export interface Wordpress {
     id: number;
+    is_remote: boolean;
     site_name: string;
     domain: string;
     port: number;
@@ -84,7 +85,7 @@ export interface Wordpress {
     db_user: string;
     db_password: string;
     db_root_password: string;
-    status: 'creating' | 'running' | 'stopped' | 'error' | 'deploying';
+    status: 'creating' | 'running' | 'stopped' | 'error' | 'deploying' | 'deleting' | 'failed';
     error_message?: string | null;
     admin_email: string;
     admin_user: string;

@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use Inertia\Inertia;
+use App\Models\Server;
+use Illuminate\Http\Request;
 use App\Models\WordPressSite;
 use App\Services\DockerService;
+use App\Jobs\DeleteWordPressSite;
 use App\Jobs\DeployWordPressSite;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
+use App\Jobs\UpdateWordPressSite;
 
 class WordPressController extends Controller
 {
@@ -37,7 +40,7 @@ class WordPressController extends Controller
         }
         
         // Get all active servers
-        $servers = \App\Models\Server::where('status', 'active')->get();
+        $servers = Server::where('status', 'active')->get();
         
         return Inertia::render('WordPress/Create', [
             'dockerStatus' => $dockerStatus,
@@ -52,9 +55,9 @@ class WordPressController extends Controller
             'site_name' => 'required|string|max:255',
             'domain' => 'nullable|string|max:255',
             'port' => 'nullable|integer|min:1024|max:65535',
-            'admin_email' => 'required|email',
-            'admin_user' => 'required|string|max:255',
-            'admin_password' => 'required|string|min:8',
+            'admin_email' => 'nullable|email',
+            'admin_user' => 'nullable|string|max:255',
+            'admin_password' => 'nullable|string|min:8',
             'db_name' => 'nullable|string|max:255',
             'db_user' => 'nullable|string|max:255',
             'db_password' => 'nullable|string|min:8',
@@ -82,8 +85,7 @@ class WordPressController extends Controller
                 $site = $this->createSiteRecord($validated);
                 
                 // Dispatch to queue - returns immediately
-                DeployWordPressSite::dispatch($site->id, $validated)
-                    ->onQueue('deployments');
+                DeployWordPressSite::dispatch($site->id, $validated);
                 
                 return redirect()->route('wordpress.show', $site)
                     ->with('success', 'WordPress site deployment started! Refresh the page in 1-2 minutes to see the status.');
@@ -103,7 +105,7 @@ class WordPressController extends Controller
 
     public function createSiteRecord(array $data): WordPressSite
     {
-        $server = isset($data['server_id']) ? \App\Models\Server::find($data['server_id']) : null;
+        $server = isset($data['server_id']) ? Server::find($data['server_id']) : null;
         $isRemote = $server && !$server->isLocal();
         
         $containerName = 'wp_' . uniqid();
@@ -120,7 +122,7 @@ class WordPressController extends Controller
             'db_user' => $data['db_user'] ?? 'wpuser',
             'db_password' => $data['db_password'] ?? $this->generatePassword(),
             'db_root_password' => $this->generatePassword(),
-            'admin_email' => $data['admin_email'],
+            'admin_email' => $data['admin_email'] ?? 'admin@gmail.com',
             'admin_user' => $data['admin_user'] ?? 'admin',
             'admin_password' => $data['admin_password'] ?? $this->generatePassword(),
             'status' => 'deploying',
@@ -171,13 +173,13 @@ class WordPressController extends Controller
     public function update(Request $request, $id)
     {
         $site = WordPressSite::findOrFail($id);
-        
+
         $validated = $request->validate([
             'site_name' => 'required|string|max:255',
             'domain' => 'nullable|string|max:255',
             'port' => 'nullable|integer|min:1024|max:65535|unique:wordpress_sites,port,' . $site->id,
-            'admin_email' => 'required|email',
-            'admin_user' => 'required|string|max:255',
+            'admin_email' => 'nullable|email',
+            'admin_user' => 'nullable|string|max:255',
             'admin_password' => 'nullable|string|min:8',
             'db_name' => 'nullable|string|max:255',
             'db_user' => 'nullable|string|max:255',
@@ -193,10 +195,31 @@ class WordPressController extends Controller
         }
 
         try {
-            $this->dockerService->updateWordPressSite($site, $validated);
-            
-            return redirect()->route('wordpress.show', $site)
-                ->with('success', 'WordPress site updated successfully!');
+            // Check if critical changes require container recreation
+            $needsRecreation = 
+                (isset($validated['port']) && $validated['port'] != $site->port) ||
+                (isset($validated['db_name']) && $validated['db_name'] != $site->db_name) ||
+                (isset($validated['db_user']) && $validated['db_user'] != $site->db_user) ||
+                (isset($validated['db_password']) && $validated['db_password'] != $site->db_password);
+
+            $useQueue = config('wordpress.use_queue', true);
+
+            if ($useQueue && $needsRecreation) {
+                // Update with deploying status
+                $site->update(['status' => 'deploying']);
+                
+                // Dispatch update job
+                UpdateWordPressSite::dispatch($site->id, $validated, $needsRecreation);
+                
+                return redirect()->route('wordpress.show', $site)
+                    ->with('success', 'WordPress site update started! Refresh the page in a moment to see the status.');
+            } else {
+                // Simple update or direct update
+                $site->update($validated);
+                
+                return redirect()->route('wordpress.show', $site)
+                    ->with('success', 'WordPress site updated successfully!');
+            }
         } catch (\Exception $e) {
             return back()
                 ->withInput()
@@ -227,18 +250,38 @@ class WordPressController extends Controller
     public function destroy($id)
     {
         $site = WordPressSite::findOrFail($id);
-        \Log::info("Delete hit {$site}");
         try {
-            $this->dockerService->deleteSite($site);
-            return redirect()->route('wordpress.index')
-                ->with('success', 'Site deleted successfully!');
+            $useQueue = config('wordpress.use_queue', true);
+
+            if ($useQueue) {
+                // Mark as deleting
+                $site->update(['status' => 'deleting']);
+                
+                // Dispatch delete job
+                DeleteWordPressSite::dispatch(
+                    $site->id,
+                    $site->is_remote,
+                    $site->server_id,
+                    $site->container_name
+                );
+                
+                return redirect()->route('wordpress.index')
+                    ->with('success', 'Site deletion started! It will be removed shortly.');
+            } else {
+                // Direct deletion
+                $this->dockerService->deleteSite($site);
+                
+                return redirect()->route('wordpress.index')
+                    ->with('success', 'Site deleted successfully!');
+            }
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to delete site: ' . $e->getMessage());
         }
     }
 
-    public function logs(WordPressSite $site)
+    public function logs($id)
     {
+        $site = WordPressSite::findOrFail($id);
         try {
             $logs = $this->dockerService->getSiteLogs($site);
             return response()->json(['logs' => $logs]);
