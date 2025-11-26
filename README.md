@@ -44,8 +44,8 @@ Before you begin, ensure you have the following installed:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/alaminfullstack/simple-wp-site-manager.git
-cd simple-wp-site-manager
+git clone https://github.com/alaminfullstack/simple-wp-manager.git
+cd simple-wp-manager
 ```
 
 ### 2. Configure Environment Variables
@@ -232,14 +232,14 @@ docker ps
 If you encounter any issues not covered in this guide, please:
 1.  Check the [Laravel documentation](https://laravel.com/docs).
 2.  Check the [Docker documentation](https://docs.docker.com/).
-3.  Create an issue in the [GitHub repository](https://github.com/alaminfullstack/simple-wp-site-manager/issues).
+3.  Create an issue in the [GitHub repository](https://github.com/alaminfullstack/simple-wp-manager/issues).
 
 
 ## 📖 Usage Guide
 
 ### Demo Video
 
-<video src="/public/screenshots/demo.mp4" width="600" controls  autoplay muted loop></video>
+<video src="https://github.com/alaminfullstack/simple-wp-manager/blob/gem/public/screenshots/demo.mp4" width="600" controls  autoplay muted loop></video>
 
 ### Managing Servers
 
@@ -338,7 +338,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 [@alaminfullstack]
 
-Project Link: [https://github.com/alaminfullstack/simple-wp-site-manager](https://github.com/alaminfullstack/simple-wp-site-manager)
+Project Link: [https://github.com/alaminfullstack/simple-wp-manager](https://github.com/alaminfullstack/simple-wp-manager)
 
 ## 🙏 Acknowledgments
 
