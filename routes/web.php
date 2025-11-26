@@ -5,6 +5,7 @@ use Laravel\Fortify\Features;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\ServerController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\WordPressController;
 use App\Http\Controllers\WordPressSiteController;
 
@@ -15,31 +16,9 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
-
-    Route::get('/test-docker', function() {
-        $process = new \Symfony\Component\Process\Process(['docker', 'ps']);
-        $process->run();
-        
-        return response()->json([
-            'success' => $process->isSuccessful(),
-            'output' => $process->getOutput(),
-            'error' => $process->getErrorOutput()
-        ]);
-    });
-
-    Route::get('/test-storage', function() {
-        $path = storage_path('wordpress-sites');
-        $writable = is_writable($path);
-        
-        return response()->json([
-            'path' => $path,
-            'exists' => file_exists($path),
-            'writable' => $writable
-        ]);
-    });
+    Route::get('dashboard', [DashboardController::class, 'dashboard'])->name('dashboard');
+    Route::get('/test-docker', [DashboardController::class, 'test_docker']);
+    Route::get('/test-storage', [DashboardController::class, 'test_storage']);
 
     // Server Management Routes
     Route::post('/servers/{server}/test', [ServerController::class, 'testConnection'])->name('servers.test');

@@ -10,6 +10,7 @@ use App\Services\DockerService;
 use App\Jobs\DeleteWordPressSite;
 use App\Jobs\DeployWordPressSite;
 use App\Jobs\UpdateWordPressSite;
+use Illuminate\Support\Facades\Auth;
 
 class WordPressController extends Controller
 {
@@ -22,7 +23,7 @@ class WordPressController extends Controller
 
     public function index()
     {
-        $sites = WordPressSite::with('server')->orderBy('created_at', 'desc')->get();
+        $sites = WordPressSite::with('server')->where('user_id', Auth::id())->orderBy('created_at', 'desc')->get();
         $dockerStatus = $this->dockerService->checkDockerAvailability();
         
         return Inertia::render('WordPress/Index', [
@@ -40,7 +41,7 @@ class WordPressController extends Controller
         }
         
         // Get all active servers
-        $servers = Server::where('status', 'active')->get();
+        $servers = Server::where(['status' => 'active', 'user_id' => Auth::id()])->get();
         
         return Inertia::render('WordPress/Create', [
             'dockerStatus' => $dockerStatus,
@@ -161,7 +162,7 @@ class WordPressController extends Controller
         $site->load('server');
 
         // Get all active servers
-        $servers = Server::where('status', 'active')->get();
+        $servers = Server::where(['status' => 'active', 'user_id' => Auth::id()])->get();
 
         return Inertia::render('WordPress/Edit', [
             'site' => $site,

@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use Inertia\Inertia;
 use App\Models\Server;
 use App\Services\SSHService;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
 
 class ServerController extends Controller
 {
     public function index()
     {
-        $servers = Server::withCount('wordPressSites')->orderBy('created_at', 'desc')->get();
+        $servers = Server::withCount('wordPressSites')->where('user_id', Auth::id())->orderBy('created_at', 'desc')->get();
         
         return Inertia::render('Servers/Index', [
             'servers' => $servers
