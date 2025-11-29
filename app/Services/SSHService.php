@@ -4,11 +4,13 @@ namespace App\Services;
 
 use App\Models\Server;
 use phpseclib3\Net\SSH2;
+use phpseclib3\Net\SFTP;
 use phpseclib3\Crypt\PublicKeyLoader;
 
 class SSHService
 {
     private $ssh;
+    private $sftp;
     private $server;
 
     public function __construct(Server $server = null)
@@ -44,6 +46,20 @@ class SSHService
 
             if (!$login) {
                 throw new \Exception('SSH authentication failed');
+            }
+
+            // Initialize SFTP connection
+            $this->sftp = new SFTP($this->server->ip_address, $this->server->ssh_port);
+            
+            if ($this->server->connection_type === 'key' && $this->server->ssh_key) {
+                $key = PublicKeyLoader::load($this->server->ssh_key);
+                $sftpLogin = $this->sftp->login($this->server->ssh_user, $key);
+            } else {
+                $sftpLogin = $this->sftp->login($this->server->ssh_user, $this->server->ssh_password);
+            }
+
+            if (!$sftpLogin) {
+                throw new \Exception('SFTP authentication failed');
             }
 
             // Update server status
@@ -111,13 +127,12 @@ class SSHService
             return copy($localPath, $remotePath);
         }
 
-        if (!$this->ssh) {
+        if (!$this->sftp) {
             $this->connect();
         }
 
         try {
-            $sftp = $this->ssh->getSFTPObject();
-            return $sftp->put($remotePath, $localPath, \phpseclib3\Net\SFTP::SOURCE_LOCAL_FILE);
+            return $this->sftp->put($remotePath, $localPath, SFTP::SOURCE_LOCAL_FILE);
         } catch (\Exception $e) {
             throw new \Exception("File upload failed: " . $e->getMessage());
         }
@@ -129,13 +144,12 @@ class SSHService
             return copy($remotePath, $localPath);
         }
 
-        if (!$this->ssh) {
+        if (!$this->sftp) {
             $this->connect();
         }
 
         try {
-            $sftp = $this->ssh->getSFTPObject();
-            return $sftp->get($remotePath, $localPath);
+            return $this->sftp->get($remotePath, $localPath);
         } catch (\Exception $e) {
             throw new \Exception("File download failed: " . $e->getMessage());
         }
@@ -147,33 +161,68 @@ class SSHService
             return file_exists($remotePath);
         }
 
-        if (!$this->ssh) {
+        if (!$this->sftp) {
             $this->connect();
         }
 
         try {
-            $sftp = $this->ssh->getSFTPObject();
-            return $sftp->file_exists($remotePath);
+            return $this->sftp->file_exists($remotePath);
         } catch (\Exception $e) {
             return false;
         }
     }
 
-    public function createDirectory(string $remotePath, int $mode = 0755): bool
+    public function createDirectory(string $remotePath, int $mode = 0755, bool $useSudo = true): bool
     {
         if ($this->server && $this->server->isLocal()) {
-            return mkdir($remotePath, $mode, true);
+            if (!file_exists($remotePath)) {
+                return mkdir($remotePath, $mode, true);
+            }
+            return true;
         }
 
-        if (!$this->ssh) {
+        if (!$this->sftp) {
             $this->connect();
         }
 
         try {
-            $sftp = $this->ssh->getSFTPObject();
-            return $sftp->mkdir($remotePath, $mode, true);
+            // Try SFTP first (without sudo)
+            $result = $this->sftp->mkdir($remotePath, $mode, true);
+            
+            // Verify directory was created
+            if (!$this->sftp->file_exists($remotePath)) {
+                // Fallback to SSH command with sudo
+                \Log::warning("SFTP mkdir failed, trying SSH command with sudo for: {$remotePath}");
+                
+                $mkdirCommand = $useSudo 
+                    ? "sudo mkdir -p {$remotePath} && sudo chmod " . decoct($mode) . " {$remotePath} && sudo chown \$USER:\$USER {$remotePath}"
+                    : "mkdir -p {$remotePath} && chmod " . decoct($mode) . " {$remotePath}";
+                
+                $sshResult = $this->execute($mkdirCommand);
+                
+                if (!$sshResult['success']) {
+                    throw new \Exception("SSH mkdir failed: " . ($sshResult['output'] ?? 'Unknown error'));
+                }
+                
+                return true;
+            }
+            
+            return $result;
         } catch (\Exception $e) {
-            throw new \Exception("Directory creation failed: " . $e->getMessage());
+            // Final fallback to SSH command with sudo
+            \Log::warning("SFTP mkdir exception, trying SSH command with sudo: " . $e->getMessage());
+            
+            $mkdirCommand = $useSudo 
+                ? "sudo mkdir -p {$remotePath} && sudo chmod " . decoct($mode) . " {$remotePath} && sudo chown \$USER:\$USER {$remotePath}"
+                : "mkdir -p {$remotePath} && chmod " . decoct($mode) . " {$remotePath}";
+            
+            $sshResult = $this->execute($mkdirCommand);
+            
+            if (!$sshResult['success']) {
+                throw new \Exception("Directory creation failed: " . $e->getMessage() . " | SSH: " . ($sshResult['output'] ?? 'Unknown error'));
+            }
+            
+            return true;
         }
     }
 
@@ -202,6 +251,11 @@ class SSHService
         if ($this->ssh) {
             $this->ssh->disconnect();
             $this->ssh = null;
+        }
+        
+        if ($this->sftp) {
+            $this->sftp->disconnect();
+            $this->sftp = null;
         }
     }
 

@@ -107,37 +107,110 @@ class DeployWordPressSite implements ShouldQueue
 
     private function deployRemoteSite(WordPressSite $site, DockerService $dockerService): void
     {
+        Log::info("Starting remote deployment for site: {$site->site_name}");
+        
         $ssh = new SSHService($site->server);
-        $ssh->connect();
-
-        $remotePath = "/var/www/wordpress-sites/{$site->container_name}";
         
-        // Create remote directory
-        $ssh->createDirectory($remotePath);
+        try {
+            Log::info("Connecting to remote server...");
+            $ssh->connect();
+            Log::info("Connected successfully to remote server");
 
-        // Generate and upload docker-compose
-        $dockerCompose = $this->generateDockerCompose($site);
-        $tempFile = sys_get_temp_dir() . '/docker-compose-' . $site->container_name . '.yml';
-        file_put_contents($tempFile, $dockerCompose);
-        
-        $ssh->uploadFile($tempFile, "{$remotePath}/docker-compose.yml");
-        unlink($tempFile);
+            // Find Docker path - try multiple common locations
+            $findDockerCmd = "which docker 2>/dev/null || command -v docker 2>/dev/null || " .
+                           "test -f /usr/bin/docker && echo '/usr/bin/docker' || " .
+                           "test -f /usr/local/bin/docker && echo '/usr/local/bin/docker' || " .
+                           "test -f /snap/bin/docker && echo '/snap/bin/docker' || " .
+                           "echo 'not_found'";
+            
+            $dockerPathResult = $ssh->execute($findDockerCmd);
+            $dockerPath = trim($dockerPathResult['output']);
+            
+            if ($dockerPath === 'not_found' || empty($dockerPath)) {
+                throw new \Exception("Docker is not installed on the remote server. Please install Docker first.");
+            }
+            
+            Log::info("Docker path: {$dockerPath}");
+            
+            // Verify Docker is accessible
+            $dockerVersionResult = $ssh->execute("{$dockerPath} --version 2>&1");
+            if (!$dockerVersionResult['success']) {
+                throw new \Exception("Docker is not installed or not accessible on the remote server: " . $dockerVersionResult['output']);
+            }
+            Log::info("Docker version: " . trim($dockerVersionResult['output']));
 
-        // Start containers
-        $result = $ssh->execute("cd {$remotePath} && docker compose up -d");
-        
-        if (!$result['success']) {
-            throw new \Exception("Failed to start remote containers: " . $result['output']);
+            // Use home directory if /var/www is not accessible, otherwise use /var/www
+            $basePathResult = $ssh->execute("test -w /var/www && echo '/var/www' || echo \"\$HOME\"");
+            $basePath = trim($basePathResult['output']) ?: "\$HOME";
+            
+            $remotePath = "{$basePath}/wordpress-sites/{$site->container_name}";
+            Log::info("Using base path: {$basePath}");
+            Log::info("Creating remote directory: {$remotePath}");
+            
+            // Create remote directory with explicit error handling
+            try {
+                $ssh->createDirectory($remotePath);
+                Log::info("Remote directory created successfully");
+            } catch (\Exception $e) {
+                Log::error("Failed to create remote directory: " . $e->getMessage());
+                throw new \Exception("Failed to create remote directory {$remotePath}: " . $e->getMessage());
+            }
+            
+            // Verify directory exists
+            $verifyResult = $ssh->execute("test -d {$remotePath} && echo 'exists' || echo 'not found'");
+            Log::info("Directory verification: " . $verifyResult['output']);
+            
+            if (strpos($verifyResult['output'], 'not found') !== false) {
+                throw new \Exception("Directory {$remotePath} was not created successfully");
+            }
+
+            // Generate and upload docker-compose
+            Log::info("Generating docker-compose.yml");
+            $dockerCompose = $this->generateDockerCompose($site);
+            $tempFile = sys_get_temp_dir() . '/docker-compose-' . $site->container_name . '.yml';
+            file_put_contents($tempFile, $dockerCompose);
+            
+            Log::info("Uploading docker-compose.yml to remote server");
+            $uploadSuccess = $ssh->uploadFile($tempFile, "{$remotePath}/docker-compose.yml");
+            unlink($tempFile);
+            
+            if (!$uploadSuccess) {
+                throw new \Exception("Failed to upload docker-compose.yml");
+            }
+            Log::info("docker-compose.yml uploaded successfully");
+            
+            // Verify file was uploaded
+            $verifyFileResult = $ssh->execute("test -f {$remotePath}/docker-compose.yml && echo 'exists' || echo 'not found'");
+            Log::info("File verification: " . $verifyFileResult['output']);
+
+            // Start containers using full docker path
+            Log::info("Starting Docker containers on remote server");
+            $result = $ssh->execute("cd {$remotePath} && {$dockerPath} compose up -d 2>&1");
+            
+            Log::info("Docker compose output: " . $result['output']);
+            
+            if (!$result['success'] || strpos($result['output'], 'error') !== false || strpos($result['output'], 'Error') !== false) {
+                throw new \Exception("Failed to start remote containers: " . $result['output']);
+            }
+            
+            Log::info("Docker containers started successfully");
+
+            // Wait for WordPress
+            $this->waitForRemoteWordPress($site, $ssh, $dockerPath);
+
+            // Auto-install WordPress
+            Log::info("Starting WordPress installation");
+            $installer = new WordPressInstallerService($ssh);
+            $installer->autoInstallWordPress($site);
+            Log::info("WordPress installation completed");
+
+        } catch (\Exception $e) {
+            Log::error("Remote deployment error: " . $e->getMessage());
+            throw $e;
+        } finally {
+            $ssh->disconnect();
+            Log::info("SSH connection closed");
         }
-
-        // Wait for WordPress
-        $this->waitForRemoteWordPress($site, $ssh);
-
-        // Auto-install WordPress
-        $installer = new WordPressInstallerService($ssh);
-        $installer->autoInstallWordPress($site);
-
-        $ssh->disconnect();
     }
 
     private function generateDockerCompose(WordPressSite $site): string
@@ -230,12 +303,12 @@ YAML;
         throw new \Exception("WordPress failed to start within timeout period");
     }
 
-    private function waitForRemoteWordPress(WordPressSite $site, SSHService $ssh, int $maxAttempts = 30): void
+    private function waitForRemoteWordPress(WordPressSite $site, SSHService $ssh, string $dockerPath = 'docker', int $maxAttempts = 30): void
     {
         $attempts = 0;
 
         while ($attempts < $maxAttempts) {
-            $result = $ssh->execute("docker inspect -f '{{.State.Running}}' {$site->container_name}");
+            $result = $ssh->execute("{$dockerPath} inspect -f '{{.State.Running}}' {$site->container_name}");
             
             if ($result['success'] && trim($result['output']) === 'true') {
                 sleep(5); // Extra time for stability
