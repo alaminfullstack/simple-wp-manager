@@ -362,8 +362,9 @@ Project Link: [https://github.com/alaminfullstack/simple-wp-manager](https://git
 ![Dashboard Screenshot](public/screenshots/Screenshot_4.png)
 
 ### Server Management
-![Server Management](public/screenshots/Screenshot_7.png)
+![Server Management](public/screenshots/Screenshot_19.png)
 ![Server Create](public/screenshots/Screenshot_8.png)
+![Server Details](public/screenshots/Screenshot_20.png)
 
 ### WordPress Site Creation
 ![Site List](public/screenshots/Screenshot_5.png)
